@@ -1,0 +1,38 @@
+{
+  "jobId": "stress-test-002",
+  "version": "1.0",
+  "createdAt": "2026-02-18T12:00:00.000Z",
+  "source": "stress-test",
+  "description": "Large-scale dirty CSV stress test with 3430 data rows",
+  "someExtraField": "preserve me untouched",
+  "nestedExtra": {
+    "owner": "data-team",
+    "priority": "high",
+    "tags": [
+      "test",
+      "stress",
+      "csv-cleaning"
+    ]
+  },
+  "input": "backend-sim/input/sales_dirty.csv",
+  "output": "backend-sim/output",
+  "parameters": {
+    "encoding": "Auto",
+    "columnNameNormalization": "snake_case",
+    "stripSpecialCharsFromHeaders": "yes",
+    "dataTypeInference": "Auto",
+    "whitespaceTrimming": "yes",
+    "emptyStringToNull": "yes",
+    "removeRowLengthMismatch": "yes",
+    "removeRowsWithNulls": {
+      "mode": "threshold",
+      "threshold": 4
+    },
+    "duplicateRowsRemoval": "yes"
+  },
+  "status": "completed",
+  "progress": 1.0,
+  "attempts": 13,
+  "updatedAt": "2026-02-19T15:35:09.484Z",
+  "error": null
+}
