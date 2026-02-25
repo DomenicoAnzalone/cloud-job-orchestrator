@@ -1,0 +1,39 @@
+# --- OS / Editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+!.vscode/extensions.json
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# --- Azure Functions local settings (DO NOT COMMIT) ---
+backend/local.settings.json
+local.settings.json
+
+# --- Node / Frontend ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+build/
+
+# --- Secrets ---
+*.pem
+*.key
+*.pfx
+*.env
+.env
