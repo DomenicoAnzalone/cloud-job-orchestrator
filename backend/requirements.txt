@@ -1,8 +1,11 @@
-# Uncomment to enable Azure Monitor OpenTelemetry
-# Ref: aka.ms/functions-azure-monitor-python 
-# azure-monitor-opentelemetry 
-
+# Azure Functions runtime
 azure-functions
+
+# Messaging (Service Bus)
 azure-servicebus
+
+# Metadata/state (Cosmos DB)
 azure-cosmos
+
+# input/output files
 azure-storage-blob
