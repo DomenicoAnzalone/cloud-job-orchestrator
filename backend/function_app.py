@@ -1,6 +1,6 @@
 import logging
 import azure.functions as func
-from src.services.jobs_service import create_job
+from src.services.jobs_service import create_job, get_job_status
 
 app = func.FunctionApp()
 
@@ -10,6 +10,11 @@ QUEUE_NAME = "q-jobs"
 @app.route(route="jobs", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 def create_job_api(req: func.HttpRequest) -> func.HttpResponse: 
     return create_job(req)
+
+@app.function_name(name="JobsGetStatusApi")
+@app.route(route="jobs/{id}", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+def jobs_get_status_api(req: func.HttpRequest) -> func.HttpResponse:
+    return get_job_status(req)
 
 
 @app.function_name(name="JobsWorker")
