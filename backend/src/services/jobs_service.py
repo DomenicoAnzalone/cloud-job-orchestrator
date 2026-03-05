@@ -3,6 +3,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 import azure.functions as func
+from azure.cosmos.exceptions import CosmosResourceNotFoundError, CosmosHttpResponseError
 from src.shared.cosmos_utils import get_cosmos_container
 from src.shared.servicebus_utils import enqueue_job
 
@@ -80,4 +81,77 @@ def create_job(req: func.HttpRequest) -> func.HttpResponse:
         json.dumps({"jobId": job_id, "statusUrl": status_url}),
         status_code=202,
         mimetype="application/json",
+    )
+
+def get_job_status(req: func.HttpRequest) -> func.HttpResponse:
+    correlation_id = req.headers.get("x-correlation-id") or str(uuid.uuid4())
+
+    # Route: /jobs/{id}  -> id sta nei route_params
+    job_id = None
+    try:
+        job_id = req.route_params.get("id")
+    except Exception:
+        job_id = None
+
+    if not job_id:
+        return func.HttpResponse(
+            json.dumps({"error": "Missing job id in route (/jobs/{id})."}),
+            status_code=400,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
+
+    # congelato per WS
+    pk = req.params.get("pk") or "demo-user"
+
+    try:
+        uuid.UUID(job_id)
+    except ValueError:
+        return func.HttpResponse(
+            json.dumps({"error": "Invalid job id format (expected UUID)."}),
+            status_code=400,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
+
+    container = get_cosmos_container()
+
+    try:
+        doc = container.read_item(item=job_id, partition_key=pk)
+    except CosmosResourceNotFoundError:
+        return func.HttpResponse(
+            json.dumps({"error": "Job not found."}),
+            status_code=404,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
+    except CosmosHttpResponseError:
+        logging.exception("Cosmos DB error while reading job status.")
+        return func.HttpResponse(
+            json.dumps({"error": "Cosmos DB error."}),
+            status_code=500,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
+    except Exception:
+        logging.exception("Unexpected error while reading job status.")
+        return func.HttpResponse(
+            json.dumps({"error": "Unexpected server error."}),
+            status_code=500,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
+
+    payload = {
+        "status": doc.get("status") or "queued",
+        "progress": doc.get("progress", 0),
+        "outputRef": doc.get("outputRef"),
+        "error": doc.get("error"),
+    }
+
+    return func.HttpResponse(
+        json.dumps(payload),
+        status_code=200,
+        mimetype="application/json",
+        headers={"x-correlation-id": correlation_id},
     )
