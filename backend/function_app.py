@@ -1,6 +1,7 @@
 import logging
 import azure.functions as func
 from src.services.jobs_service import create_job, get_job_status
+from src.services.worker_service import process_job_message
 
 app = func.FunctionApp()
 
@@ -23,6 +24,4 @@ def jobs_get_status_api(req: func.HttpRequest) -> func.HttpResponse:
     connection="SERVICEBUS_CONNECTION",
 )
 def jobs_worker(msg: func.ServiceBusMessage) -> None:
-    # Stub: no processing yet. Just prove the SB trigger is loaded.
-    body = msg.get_body().decode("utf-8", errors="replace")
-    logging.info("JobsWorker received message body: %s", body)
+    process_job_message(msg)
