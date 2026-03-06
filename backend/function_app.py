@@ -16,7 +16,6 @@ def create_job_api(req: func.HttpRequest) -> func.HttpResponse:
 def jobs_get_status_api(req: func.HttpRequest) -> func.HttpResponse:
     return get_job_status(req)
 
-
 @app.function_name(name="JobsWorker")
 @app.service_bus_queue_trigger(
     arg_name="msg",

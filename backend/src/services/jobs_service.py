@@ -11,11 +11,7 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 def create_job(req: func.HttpRequest) -> func.HttpResponse:
-    # GET: ancora stub
-    if req.method == "GET":
-        return func.HttpResponse("JobsApi stub (GET).", status_code=200)
 
-    # POST /jobs
     correlation_id = req.headers.get("x-correlation-id") or str(uuid.uuid4())
 
     try:
@@ -27,8 +23,11 @@ def create_job(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json",
         )
 
+    # TO-DO: validare payload
     pk = payload.get("pk") or "demo-user"
     job_type = payload.get("type") or "demo"
+
+    # TO-DO: validare pk & job_type
 
     job_id = str(uuid.uuid4())
     now = utc_now_iso()
@@ -101,9 +100,12 @@ def get_job_status(req: func.HttpRequest) -> func.HttpResponse:
             headers={"x-correlation-id": correlation_id},
         )
 
-    # congelato per WS
+    # congelato per WS, 
+    # TO-DO Da inserire in futuro un cortrollo per vedere se nell'URL è presente il parametro dell'utente
+    # TO-DO Controllare se l'utente è autorizzato a vedere lo status del job (es. se pk è presente, deve corrispondere al job)
     pk = req.params.get("pk") or "demo-user"
 
+    # Check formato corretto
     try:
         uuid.UUID(job_id)
     except ValueError:
@@ -118,6 +120,8 @@ def get_job_status(req: func.HttpRequest) -> func.HttpResponse:
 
     try:
         doc = container.read_item(item=job_id, partition_key=pk)
+    
+    # TO-DO: gestire eccezione se job non trovato (404)
     except CosmosResourceNotFoundError:
         return func.HttpResponse(
             json.dumps({"error": "Job not found."}),
