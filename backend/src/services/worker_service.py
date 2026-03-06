@@ -8,7 +8,7 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from src.shared.cosmos_utils import get_cosmos_container
 
-TERMINAL_STATUSES = {"done", "failed", "canceled"}
+NON_REPROCESSABLE_STATUSES = {"processing", "done", "failed", "canceled"}
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -59,9 +59,9 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
     current_status = (job_doc.get("status") or "").lower()
 
     # Idempotenza base: se è già terminale, non rielaborare
-    if current_status in TERMINAL_STATUSES:
+    if current_status in NON_REPROCESSABLE_STATUSES:
         logging.info(
-            "Skipping already terminal job. jobId=%s status=%s corr=%s",
+            "Skipping already non-reprocessable job. jobId=%s status=%s corr=%s",
             job_id,
             current_status,
             correlation_id,
