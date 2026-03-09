@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import azure.functions as func
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
+from src.shared.blob_utils import upload_text_output
 from src.shared.cosmos_utils import get_cosmos_container
 
 NON_REPROCESSABLE_STATUSES = {"processing", "done", "failed", "canceled"}
@@ -18,11 +19,20 @@ def _replace_job(container, job_doc: dict) -> None:
     job_doc["updatedAt"] = utc_now_iso()
     container.replace_item(item=job_doc["id"], body=job_doc)
 
+def _build_dummy_result(job_doc: dict) -> str:
+    return (
+        "Cloud Job Orchestrator - dummy worker output\n"
+        f"jobId: {job_doc['id']}\n"
+        f"pk: {job_doc.get('pk')}\n"
+        f"type: {job_doc.get('type')}\n"
+        f"status: done\n"
+        f"attempts: {job_doc.get('attempts')}\n"
+        f"generatedAt: {utc_now_iso()}\n"
+    )
+
 
 def process_job_message(msg: func.ServiceBusMessage) -> None:
     raw_body = msg.get_body().decode("utf-8", errors="replace")
-
-    # Debug
     logging.info("JobsWorker received message body: %s", raw_body)
 
     try:
@@ -58,7 +68,6 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
 
     current_status = (job_doc.get("status") or "").lower()
 
-    # Idempotenza base: se è già terminale, non rielaborare
     if current_status in NON_REPROCESSABLE_STATUSES:
         logging.info(
             "Skipping already non-reprocessable job. jobId=%s status=%s corr=%s",
@@ -68,34 +77,40 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
         )
         return
 
-    # TO-DO Gestire la possibile race condition (se due worker superano simultaneamente il controllo sopra)
-    # Un'idea è usare e-tag per rendere atomica la lettura + update dello status a "processing"
+    # TO-DO: gestire race condition con e-tag / optimistic concurrency
     try:
-        # queued -> processing
         job_doc["status"] = "processing"
         job_doc["progress"] = 0.1
         job_doc["attempts"] = int(job_doc.get("attempts", 0)) + 1
         job_doc.pop("error", None)
+        job_doc.pop("outputRef", None)
         _replace_job(container, job_doc)
 
-        # fake progress per demo
         for progress in (0.4, 0.7, 0.9):
             time.sleep(10)
             job_doc["status"] = "processing"
             job_doc["progress"] = progress
             _replace_job(container, job_doc)
 
-        # processing -> done
+        result_text = _build_dummy_result(job_doc)
+        output_ref = upload_text_output(
+            pk=pk,
+            job_id=job_id,
+            content=result_text,
+        )
+
         time.sleep(10)
         job_doc["status"] = "done"
         job_doc["progress"] = 1.0
+        job_doc["outputRef"] = output_ref
         _replace_job(container, job_doc)
 
         logging.info(
-            "Job completed successfully. jobId=%s pk=%s corr=%s",
+            "Job completed successfully. jobId=%s pk=%s corr=%s outputRef=%s",
             job_id,
             pk,
             correlation_id,
+            output_ref,
         )
 
     except Exception as exc:
