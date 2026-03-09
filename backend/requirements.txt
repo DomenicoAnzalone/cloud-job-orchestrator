@@ -9,3 +9,4 @@ azure-cosmos
 
 # input/output files
 azure-storage-blob
+azure-identity
