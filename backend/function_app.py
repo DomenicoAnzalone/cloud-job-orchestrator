@@ -1,6 +1,6 @@
 import logging
 import azure.functions as func
-from src.services.jobs_service import create_job, get_job_status
+from src.services.jobs_service import create_job, get_job_status, get_job_output_link
 from src.services.worker_service import process_job_message
 
 app = func.FunctionApp()
@@ -16,6 +16,15 @@ def create_job_api(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="jobs/{id}", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def jobs_get_status_api(req: func.HttpRequest) -> func.HttpResponse:
     return get_job_status(req)
+
+@app.function_name(name="JobsGetOutputLinkApi")
+@app.route(
+    route="jobs/{id}/output-link",
+    methods=["GET"],
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+def jobs_get_output_link_api(req: func.HttpRequest) -> func.HttpResponse:
+    return get_job_output_link(req)
 
 @app.function_name(name="JobsWorker")
 @app.service_bus_queue_trigger(

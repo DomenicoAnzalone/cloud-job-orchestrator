@@ -4,8 +4,10 @@ import uuid
 from datetime import datetime, timezone
 import azure.functions as func
 from azure.cosmos.exceptions import CosmosResourceNotFoundError, CosmosHttpResponseError
+
 from src.shared.cosmos_utils import get_cosmos_container
 from src.shared.servicebus_utils import enqueue_job
+from src.shared.blob_utils import generate_blob_read_sas_url
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -158,4 +160,126 @@ def get_job_status(req: func.HttpRequest) -> func.HttpResponse:
         status_code=200,
         mimetype="application/json",
         headers={"x-correlation-id": correlation_id},
+    )
+
+def get_job_output_link(req: func.HttpRequest) -> func.HttpResponse:
+    correlation_id = req.headers.get("x-correlation-id") or str(uuid.uuid4())
+
+    try:
+        job_id = req.route_params.get("id")
+    except Exception:
+        job_id = None
+
+    if not job_id:
+        return func.HttpResponse(
+            json.dumps({"error": "Missing job id in route (/jobs/{id}/output-link)."}),
+            status_code=400,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
+
+    pk = req.params.get("pk") or "demo-user"
+
+    try:
+        uuid.UUID(job_id)
+    except ValueError:
+        return func.HttpResponse(
+            json.dumps({"error": "Invalid job id format (expected UUID)."}),
+            status_code=400,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
+
+    container = get_cosmos_container()
+
+    try:
+        doc = container.read_item(item=job_id, partition_key=pk)
+    except CosmosResourceNotFoundError:
+        return func.HttpResponse(
+            json.dumps({"error": "Job not found."}),
+            status_code=404,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
+    except CosmosHttpResponseError:
+        logging.exception("Cosmos DB error while reading job output link.")
+        return func.HttpResponse(
+            json.dumps({"error": "Cosmos DB error."}),
+            status_code=500,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
+    except Exception:
+        logging.exception("Unexpected error while reading job output link.")
+        return func.HttpResponse(
+            json.dumps({"error": "Unexpected server error."}),
+            status_code=500,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
+
+    status = (doc.get("status") or "").lower()
+    output_ref = doc.get("outputRef") or {}
+    output_container = output_ref.get("container")
+    blob_name = output_ref.get("blobName")
+
+    if status != "done":
+        return func.HttpResponse(
+            json.dumps(
+                {
+                    "error": "Output not available yet.",
+                    "status": status or "unknown",
+                }
+            ),
+            status_code=409,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
+
+    if not output_container or not blob_name:
+        logging.error(
+            "Job is done but outputRef is missing/incomplete. jobId=%s pk=%s corr=%s",
+            job_id,
+            pk,
+            correlation_id,
+        )
+        return func.HttpResponse(
+            json.dumps({"error": "Job output metadata missing."}),
+            status_code=500,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
+
+    try:
+        sas_payload = generate_blob_read_sas_url(
+            container_name=output_container,
+            blob_name=blob_name,
+        )
+    except Exception:
+        logging.exception(
+            "Failed to generate SAS output link. jobId=%s pk=%s corr=%s",
+            job_id,
+            pk,
+            correlation_id,
+        )
+        return func.HttpResponse(
+            json.dumps({"error": "Failed to generate output link."}),
+            status_code=500,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
+
+    return func.HttpResponse(
+        json.dumps(
+            {
+                "downloadUrl": sas_payload["url"],
+                "expiresAt": sas_payload["expiresAt"],
+            }
+        ),
+        status_code=200,
+        mimetype="application/json",
+        headers={
+            "x-correlation-id": correlation_id,
+            "Cache-Control": "no-store",
+        },
     )
