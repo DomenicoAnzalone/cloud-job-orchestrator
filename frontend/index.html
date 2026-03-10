@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CJO Demo UI</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --accent: #38bdf8;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --border: #1f2937;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(180deg, #0b1220, #111827);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .container {
+      width: min(900px, calc(100% - 32px));
+      margin: 32px auto;
+    }
+
+    .card {
+      background: rgba(17, 24, 39, 0.95);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      margin-bottom: 16px;
+    }
+
+    h1, h2 {
+      margin-top: 0;
+    }
+
+    p {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: end;
+    }
+
+    .field {
+      flex: 1 1 240px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 6px;
+      color: var(--muted);
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0b1220;
+      color: var(--text);
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      color: var(--text);
+    }
+
+    button, a.button-link {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #001018;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 140px;
+    }
+
+    button.secondary {
+      background: #334155;
+      color: var(--text);
+    }
+
+    button:disabled,
+    a.button-link.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .stat {
+      background: #0b1220;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .stat .label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .stat .value {
+      font-size: 16px;
+      font-weight: 700;
+      word-break: break-word;
+    }
+
+    .status-pill {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      background: #1e293b;
+      color: var(--text);
+    }
+
+    .status-queued { background: #1e293b; color: #cbd5e1; }
+    .status-processing { background: rgba(245, 158, 11, 0.15); color: var(--warn); }
+    .status-done { background: rgba(34, 197, 94, 0.15); color: var(--ok); }
+    .status-failed, .status-canceled { background: rgba(239, 68, 68, 0.15); color: var(--err); }
+
+    pre {
+      background: #0b1220;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Cloud Job Orchestrator — Demo UI</h1>
+      <p>
+        Minimal static frontend for the walking skeleton. It creates a job,
+        polls status, and retrieves the download link when the output is ready.
+      </p>
+
+      <div class="row">
+        <div class="field">
+          <label for="apiBase">API base URL</label>
+          <input id="apiBase" type="text" value="http://localhost:7071/api" />
+        </div>
+
+        <div class="field">
+          <label for="pk">Partition key / user</label>
+          <input id="pk" type="text" value="demo-user" />
+        </div>
+      </div>
+
+      <div class="checkbox-row">
+        <input id="forceFail" type="checkbox" />
+        <label for="forceFail" style="margin: 0;">Force failure demo (parameters.fail=true)</label>
+      </div>
+
+      <div class="actions">
+        <button id="createBtn">Create Job</button>
+        <button id="refreshBtn" class="secondary" disabled>Refresh Status</button>
+        <button id="downloadBtn" class="secondary" disabled>Download Output</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Job state</h2>
+      <div class="grid">
+        <div class="stat">
+          <div class="label">Job ID</div>
+          <div class="value" id="jobIdValue">-</div>
+        </div>
+
+        <div class="stat">
+          <div class="label">Status</div>
+          <div class="value"><span id="statusValue" class="status-pill">idle</span></div>
+        </div>
+
+        <div class="stat">
+          <div class="label">Progress</div>
+          <div class="value" id="progressValue">-</div>
+        </div>
+
+        <div class="stat">
+          <div class="label">Attempts</div>
+          <div class="value" id="attemptsValue">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Error</h2>
+      <pre id="errorBox" class="muted">No error</pre>
+    </div>
+
+    <div class="card">
+      <h2>Download link info</h2>
+      <pre id="downloadInfo" class="muted">No output link requested yet</pre>
+    </div>
+
+    <div class="card">
+      <h2>Event log</h2>
+      <pre id="logBox">UI ready</pre>
+    </div>
+  </div>
+
+  <script>
+    const els = {
+      apiBase: document.getElementById("apiBase"),
+      pk: document.getElementById("pk"),
+      forceFail: document.getElementById("forceFail"),
+      createBtn: document.getElementById("createBtn"),
+      refreshBtn: document.getElementById("refreshBtn"),
+      downloadBtn: document.getElementById("downloadBtn"),
+      jobIdValue: document.getElementById("jobIdValue"),
+      statusValue: document.getElementById("statusValue"),
+      progressValue: document.getElementById("progressValue"),
+      attemptsValue: document.getElementById("attemptsValue"),
+      errorBox: document.getElementById("errorBox"),
+      downloadInfo: document.getElementById("downloadInfo"),
+      logBox: document.getElementById("logBox"),
+    };
+
+    let currentJobId = null;
+    let pollHandle = null;
+
+    function log(message) {
+      const ts = new Date().toLocaleTimeString();
+      els.logBox.textContent = `[${ts}] ${message}\n` + els.logBox.textContent;
+    }
+
+    function setStatus(status) {
+      const normalized = (status || "unknown").toLowerCase();
+      els.statusValue.textContent = normalized;
+      els.statusValue.className = `status-pill status-${normalized}`;
+    }
+
+    function resetView() {
+      currentJobId = null;
+      stopPolling();
+
+      els.jobIdValue.textContent = "-";
+      els.progressValue.textContent = "-";
+      els.attemptsValue.textContent = "-";
+      els.errorBox.textContent = "No error";
+      els.downloadInfo.textContent = "No output link requested yet";
+      setStatus("idle");
+
+      els.refreshBtn.disabled = true;
+      els.downloadBtn.disabled = true;
+    }
+
+    function stopPolling() {
+      if (pollHandle) {
+        clearInterval(pollHandle);
+        pollHandle = null;
+      }
+    }
+
+    function startPolling() {
+      stopPolling();
+      pollHandle = setInterval(async () => {
+        try {
+          await refreshStatus();
+        } catch (_) {
+          // already logged
+        }
+      }, 3000);
+    }
+
+    function getApiBase() {
+      return els.apiBase.value.trim().replace(/\/+$/, "");
+    }
+
+    function getPk() {
+      return els.pk.value.trim() || "demo-user";
+    }
+
+    async function parseResponse(res) {
+      const text = await res.text();
+      let data = {};
+
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { raw: text };
+      }
+
+      if (!res.ok) {
+        const msg = data.error || data.message || data.raw || `${res.status} ${res.statusText}`;
+        throw new Error(msg);
+      }
+
+      return data;
+    }
+
+    function formatError(errorPayload) {
+      if (!errorPayload) {
+        return "No error";
+      }
+
+      if (typeof errorPayload === "string") {
+        return errorPayload;
+      }
+
+      return JSON.stringify(errorPayload, null, 2);
+    }
+
+    async function createJob() {
+      resetView();
+
+      const payload = {
+        pk: getPk(),
+        type: "csv_cleaning_validation",
+        parameters: {
+          delimiter: ",",
+          trimWhitespace: true,
+        },
+      };
+
+      if (els.forceFail.checked) {
+        payload.parameters.fail = true;
+      }
+
+      log("Creating job...");
+
+      els.createBtn.disabled = true;
+
+      try {
+        const res = await fetch(`${getApiBase()}/jobs`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await parseResponse(res);
+
+        currentJobId = data.jobId;
+        els.jobIdValue.textContent = currentJobId;
+        els.refreshBtn.disabled = false;
+
+        log(`Job created successfully. jobId=${currentJobId}`);
+
+        await refreshStatus();
+        startPolling();
+      } catch (err) {
+        log(`Create job failed: ${err.message}`);
+        setStatus("failed");
+        els.errorBox.textContent = err.message;
+      } finally {
+        els.createBtn.disabled = false;
+      }
+    }
+
+    async function refreshStatus() {
+      if (!currentJobId) {
+        log("No job available to refresh.");
+        return;
+      }
+
+      const url = `${getApiBase()}/jobs/${encodeURIComponent(currentJobId)}?pk=${encodeURIComponent(getPk())}`;
+      const res = await fetch(url, { method: "GET" });
+      const data = await parseResponse(res);
+
+      const status = (data.status || "unknown").toLowerCase();
+
+      setStatus(status);
+      els.progressValue.textContent = data.progress ?? "-";
+      els.attemptsValue.textContent = data.attempts ?? "-";
+      els.errorBox.textContent = formatError(data.error);
+
+      log(`Status refreshed: status=${status} progress=${data.progress ?? "-"} attempts=${data.attempts ?? "-"}`);
+
+      if (status === "done") {
+        els.downloadBtn.disabled = false;
+        stopPolling();
+        log("Job reached terminal state: done");
+      } else if (status === "failed" || status === "canceled") {
+        els.downloadBtn.disabled = true;
+        stopPolling();
+        log(`Job reached terminal state: ${status}`);
+      } else {
+        els.downloadBtn.disabled = true;
+      }
+    }
+
+    async function downloadOutput() {
+      if (!currentJobId) {
+        log("No job available for output download.");
+        return;
+      }
+
+      log("Requesting output link...");
+
+      try {
+        const url = `${getApiBase()}/jobs/${encodeURIComponent(currentJobId)}/output-link?pk=${encodeURIComponent(getPk())}`;
+        const res = await fetch(url, { method: "GET" });
+        const data = await parseResponse(res);
+
+        els.downloadInfo.textContent = JSON.stringify(data, null, 2);
+        log("Output link received. Opening browser tab...");
+
+        window.open(data.downloadUrl, "_blank", "noopener,noreferrer");
+      } catch (err) {
+        els.downloadInfo.textContent = err.message;
+        log(`Output link request failed: ${err.message}`);
+      }
+    }
+
+    els.createBtn.addEventListener("click", createJob);
+    els.refreshBtn.addEventListener("click", refreshStatus);
+    els.downloadBtn.addEventListener("click", downloadOutput);
+
+    resetView();
+  </script>
+</body>
+</html>
