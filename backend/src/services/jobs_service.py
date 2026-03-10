@@ -151,8 +151,10 @@ def get_job_status(req: func.HttpRequest) -> func.HttpResponse:
     payload = {
         "status": doc.get("status") or "queued",
         "progress": doc.get("progress", 0),
+        "attempts": doc.get("attempts", 0),
         "outputRef": doc.get("outputRef"),
         "error": doc.get("error"),
+        "updatedAt": doc.get("updatedAt"),
     }
 
     return func.HttpResponse(

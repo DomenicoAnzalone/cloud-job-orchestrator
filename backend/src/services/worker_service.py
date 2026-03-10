@@ -9,7 +9,8 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from src.shared.blob_utils import upload_text_output
 from src.shared.cosmos_utils import get_cosmos_container
 
-NON_REPROCESSABLE_STATUSES = {"processing", "done", "failed", "canceled"}
+TERMINAL_SKIP_STATUSES = {"done", "canceled"}
+
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -18,6 +19,7 @@ def utc_now_iso() -> str:
 def _replace_job(container, job_doc: dict) -> None:
     job_doc["updatedAt"] = utc_now_iso()
     container.replace_item(item=job_doc["id"], body=job_doc)
+
 
 def _build_dummy_result(job_doc: dict) -> str:
     return (
@@ -31,9 +33,28 @@ def _build_dummy_result(job_doc: dict) -> str:
     )
 
 
+def _is_forced_failure(job_doc: dict) -> bool:
+    parameters = job_doc.get("parameters") or {}
+    return bool(parameters.get("fail"))
+
+
+def _build_error_payload(code: str, message: str, stage: str) -> dict:
+    return {
+        "code": code,
+        "message": message,
+        "stage": stage,
+    }
+
+
 def process_job_message(msg: func.ServiceBusMessage) -> None:
     raw_body = msg.get_body().decode("utf-8", errors="replace")
-    logging.info("JobsWorker received message body: %s", raw_body)
+    delivery_count = int(getattr(msg, "delivery_count", 0) or 0)
+
+    logging.info(
+        "JobsWorker received message. deliveryCount=%s body=%s",
+        delivery_count,
+        raw_body,
+    )
 
     try:
         payload = json.loads(raw_body)
@@ -54,6 +75,8 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
         raise ValueError("Missing jobId/pk in Service Bus message")
 
     container = get_cosmos_container()
+    job_doc = None
+    stage = "read-job"
 
     try:
         job_doc = container.read_item(item=job_id, partition_key=pk)
@@ -68,17 +91,17 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
 
     current_status = (job_doc.get("status") or "").lower()
 
-    if current_status in NON_REPROCESSABLE_STATUSES:
+    if current_status in TERMINAL_SKIP_STATUSES:
         logging.info(
-            "Skipping already non-reprocessable job. jobId=%s status=%s corr=%s",
+            "Skipping terminal job. jobId=%s status=%s corr=%s",
             job_id,
             current_status,
             correlation_id,
         )
         return
 
-    # TO-DO: gestire race condition con e-tag / optimistic concurrency
     try:
+        stage = "mark-processing"
         job_doc["status"] = "processing"
         job_doc["progress"] = 0.1
         job_doc["attempts"] = int(job_doc.get("attempts", 0)) + 1
@@ -86,19 +109,29 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
         job_doc.pop("outputRef", None)
         _replace_job(container, job_doc)
 
+        if _is_forced_failure(job_doc):
+            stage = "forced-demo-failure"
+            time.sleep(5)
+            raise RuntimeError("Forced demo failure (parameters.fail=true)")
+
+        stage = "simulate-work"
         for progress in (0.4, 0.7, 0.9):
             time.sleep(10)
             job_doc["status"] = "processing"
             job_doc["progress"] = progress
             _replace_job(container, job_doc)
 
+        stage = "build-output"
         result_text = _build_dummy_result(job_doc)
+
+        stage = "upload-output"
         output_ref = upload_text_output(
             pk=pk,
             job_id=job_id,
             content=result_text,
         )
 
+        stage = "finalize"
         time.sleep(10)
         job_doc["status"] = "done"
         job_doc["progress"] = 1.0
@@ -115,22 +148,34 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
 
     except Exception as exc:
         logging.exception(
-            "Worker failed while processing jobId=%s pk=%s corr=%s",
+            "Worker failed while processing jobId=%s pk=%s corr=%s stage=%s",
             job_id,
             pk,
             correlation_id,
+            stage,
         )
 
-        try:
-            job_doc["status"] = "failed"
-            job_doc["error"] = str(exc)
-            _replace_job(container, job_doc)
-        except Exception:
-            logging.exception(
-                "Failed to persist failed status for jobId=%s pk=%s corr=%s",
-                job_id,
-                pk,
-                correlation_id,
-            )
+        if job_doc is not None:
+            try:
+                error_code = (
+                    "DEMO_FORCED_FAILURE"
+                    if _is_forced_failure(job_doc)
+                    else "WORKER_EXECUTION_ERROR"
+                )
+
+                job_doc["status"] = "failed"
+                job_doc["error"] = _build_error_payload(
+                    code=error_code,
+                    message=str(exc),
+                    stage=stage,
+                )
+                _replace_job(container, job_doc)
+            except Exception:
+                logging.exception(
+                    "Failed to persist failed status for jobId=%s pk=%s corr=%s",
+                    job_id,
+                    pk,
+                    correlation_id,
+                )
 
         raise
