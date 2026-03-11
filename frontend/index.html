@@ -232,6 +232,11 @@
           <div class="label">Attempts</div>
           <div class="value" id="attemptsValue">-</div>
         </div>
+
+        <div class="stat">
+          <div class="label">Realtime</div>
+          <div class="value" id="realtimeValue">disconnected</div>
+        </div>
       </div>
     </div>
 
@@ -251,6 +256,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@latest/dist/browser/signalr.min.js"></script>
   <script>
     const els = {
       apiBase: document.getElementById("apiBase"),
@@ -266,10 +272,119 @@
       errorBox: document.getElementById("errorBox"),
       downloadInfo: document.getElementById("downloadInfo"),
       logBox: document.getElementById("logBox"),
+      realtimeValue: document.getElementById("realtimeValue"),
     };
 
     let currentJobId = null;
     let pollHandle = null;
+    let signalrConnection = null;
+    let realtimeConnected = false;
+
+    function setRealtimeStatus(value) {
+      els.realtimeValue.textContent = value;
+    }
+
+    function applyJobSnapshot(data, source = "realtime") {
+      const status = (data.status || "unknown").toLowerCase();
+
+      setStatus(status);
+      els.progressValue.textContent = data.progress ?? "-";
+      els.attemptsValue.textContent = data.attempts ?? "-";
+      els.errorBox.textContent = formatError(data.error);
+
+      if (status === "done") {
+        els.downloadBtn.disabled = false;
+        log(`Job reached terminal state via ${source}: done`);
+      } else if (status === "failed" || status === "canceled") {
+        els.downloadBtn.disabled = true;
+        log(`Job reached terminal state via ${source}: ${status}`);
+      } else {
+        els.downloadBtn.disabled = true;
+      }
+    }
+
+    async function disconnectRealtime() {
+      if (signalrConnection) {
+        try {
+          await signalrConnection.stop();
+        } catch (_) {
+          // ignore
+        }
+      }
+
+      signalrConnection = null;
+      realtimeConnected = false;
+      setRealtimeStatus("disconnected");
+    }
+
+    async function connectRealtime() {
+
+      await disconnectRealtime();
+
+      const negotiateUrl =
+        `${getApiBase()}/realtime/negotiate?pk=${encodeURIComponent(getPk())}`;
+
+      setRealtimeStatus("connecting");
+
+      try {
+
+        const negotiateRes = await fetch(negotiateUrl);
+        const negotiateData = await negotiateRes.json();
+
+        signalrConnection = new signalR.HubConnectionBuilder()
+          .withUrl(negotiateData.url, {
+            accessTokenFactory: () => negotiateData.accessToken
+          })
+          .withAutomaticReconnect()
+          .configureLogging(signalR.LogLevel.Warning)
+          .build();
+
+        signalrConnection.on("jobUpdated", (payload) => {
+
+          if (!payload || !payload.jobId) return;
+
+          if (!currentJobId || payload.jobId !== currentJobId) return;
+
+          applyJobSnapshot(payload, "realtime");
+
+          log(
+            `Realtime update: status=${payload.status ?? "-"} progress=${payload.progress ?? "-"} attempts=${payload.attempts ?? "-"}`
+          );
+
+        });
+
+        signalrConnection.onreconnecting(() => {
+          realtimeConnected = false;
+          setRealtimeStatus("reconnecting");
+          log("Realtime reconnecting...");
+        });
+
+        signalrConnection.onreconnected(() => {
+          realtimeConnected = true;
+          setRealtimeStatus("connected");
+          log("Realtime reconnected.");
+        });
+
+        signalrConnection.onclose(() => {
+          realtimeConnected = false;
+          setRealtimeStatus("disconnected");
+          log("Realtime disconnected.");
+        });
+
+        await signalrConnection.start();
+
+        realtimeConnected = true;
+        setRealtimeStatus("connected");
+
+        log(`Realtime connected for pk=${getPk()}`);
+
+      } catch (err) {
+
+        setRealtimeStatus("error");
+        log(`Realtime connection failed: ${err.message}`);
+
+      }
+    }
 
     function log(message) {
       const ts = new Date().toLocaleTimeString();
@@ -292,6 +407,7 @@
       els.errorBox.textContent = "No error";
       els.downloadInfo.textContent = "No output link requested yet";
       setStatus("idle");
+      setRealtimeStatus("disconnected");
 
       els.refreshBtn.disabled = true;
       els.downloadBtn.disabled = true;
@@ -306,13 +422,14 @@
 
     function startPolling() {
       stopPolling();
+
       pollHandle = setInterval(async () => {
         try {
           await refreshStatus();
         } catch (_) {
           // already logged
         }
-      }, 3000);
+      }, realtimeConnected ? 15000 : 3000);
     }
 
     function getApiBase() {
@@ -390,6 +507,7 @@
 
         log(`Job created successfully. jobId=${currentJobId}`);
 
+        await connectRealtime();
         await refreshStatus();
         startPolling();
       } catch (err) {
@@ -402,34 +520,28 @@
     }
 
     async function refreshStatus() {
+
       if (!currentJobId) {
         log("No job available to refresh.");
         return;
       }
 
       const url = `${getApiBase()}/jobs/${encodeURIComponent(currentJobId)}?pk=${encodeURIComponent(getPk())}`;
+
       const res = await fetch(url, { method: "GET" });
+
       const data = await parseResponse(res);
+
+      applyJobSnapshot(data, "poll");
+
+      log(
+        `Status refreshed: status=${data.status ?? "-"} progress=${data.progress ?? "-"} attempts=${data.attempts ?? "-"}`
+      );
 
       const status = (data.status || "unknown").toLowerCase();
 
-      setStatus(status);
-      els.progressValue.textContent = data.progress ?? "-";
-      els.attemptsValue.textContent = data.attempts ?? "-";
-      els.errorBox.textContent = formatError(data.error);
-
-      log(`Status refreshed: status=${status} progress=${data.progress ?? "-"} attempts=${data.attempts ?? "-"}`);
-
-      if (status === "done") {
-        els.downloadBtn.disabled = false;
+      if (status === "done" || status === "failed" || status === "canceled") {
         stopPolling();
-        log("Job reached terminal state: done");
-      } else if (status === "failed" || status === "canceled") {
-        els.downloadBtn.disabled = true;
-        stopPolling();
-        log(`Job reached terminal state: ${status}`);
-      } else {
-        els.downloadBtn.disabled = true;
       }
     }
 
