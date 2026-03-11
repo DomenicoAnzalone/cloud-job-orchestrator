@@ -8,6 +8,7 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from src.shared.blob_utils import upload_text_output
 from src.shared.cosmos_utils import get_cosmos_container
+from src.shared.signalr_utils import send_signalr_message_to_user
 
 TERMINAL_SKIP_STATUSES = {"done", "canceled"}
 
@@ -20,6 +21,33 @@ def _replace_job(container, job_doc: dict) -> None:
     job_doc["updatedAt"] = utc_now_iso()
     container.replace_item(item=job_doc["id"], body=job_doc)
 
+def _build_realtime_job_payload(job_doc: dict) -> dict:
+    return {
+        "jobId": job_doc.get("id"),
+        "pk": job_doc.get("pk"),
+        "status": job_doc.get("status"),
+        "progress": job_doc.get("progress"),
+        "attempts": job_doc.get("attempts"),
+        "error": job_doc.get("error"),
+        "updatedAt": job_doc.get("updatedAt"),
+    }
+
+
+def _publish_job_update(job_doc: dict, correlation_id: str | None) -> None:
+    try:
+        user_id = str(job_doc.get("pk") or "demo-user")
+        send_signalr_message_to_user(
+            user_id=user_id,
+            target="jobUpdated",
+            arguments=[_build_realtime_job_payload(job_doc)],
+        )
+    except Exception:
+        logging.exception(
+            "SignalR publish failed for jobId=%s pk=%s corr=%s",
+            job_doc.get("id"),
+            job_doc.get("pk"),
+            correlation_id,
+        )
 
 def _build_dummy_result(job_doc: dict) -> str:
     return (
@@ -108,6 +136,7 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
         job_doc.pop("error", None)
         job_doc.pop("outputRef", None)
         _replace_job(container, job_doc)
+        _publish_job_update(job_doc, correlation_id)
 
         if _is_forced_failure(job_doc):
             stage = "forced-demo-failure"
@@ -120,6 +149,7 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
             job_doc["status"] = "processing"
             job_doc["progress"] = progress
             _replace_job(container, job_doc)
+            _publish_job_update(job_doc, correlation_id)
 
         stage = "build-output"
         result_text = _build_dummy_result(job_doc)
@@ -137,6 +167,7 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
         job_doc["progress"] = 1.0
         job_doc["outputRef"] = output_ref
         _replace_job(container, job_doc)
+        _publish_job_update(job_doc, correlation_id)
 
         logging.info(
             "Job completed successfully. jobId=%s pk=%s corr=%s outputRef=%s",
@@ -170,6 +201,7 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
                     stage=stage,
                 )
                 _replace_job(container, job_doc)
+                _publish_job_update(job_doc, correlation_id)
             except Exception:
                 logging.exception(
                     "Failed to persist failed status for jobId=%s pk=%s corr=%s",
