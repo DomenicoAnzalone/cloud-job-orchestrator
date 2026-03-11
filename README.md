@@ -5,14 +5,14 @@ Queue-based orchestration for asynchronous file jobs (CSV files). The project fo
 Currently building the **Walking Skeleton**: a minimal end-to-end slice that proves the architecture and contracts before adding real processing logic and UI.
 
 Target flow:
-API (Azure Functions HTTP) → Cosmos DB (job state) → Service Bus (queue) → Worker (Azure Functions) → (later) Blob Storage outputs → (later) UI polling / notifications
+API (Azure Functions HTTP) → Cosmos DB (job state) → Service Bus (queue) → Worker (Azure Functions) → Blob Storage outputs → UI polling / notifications
 
 ## Repository structure
 - `backend/` Azure Functions (Python): HTTP API + Worker
-- `frontend/` Minimal demo UI (static page)
+- `frontend/` Minimal UI (static page)
 - `docs/` Architecture notes and contracts
 - `samples/` Sample CSV and sample job payloads
-- `infra/` Notes/scripts for Azure setup (no full IaC yet)
+- `infra/` Notes/scripts for Azure setup
 
 ## Local development
 This repo uses **Azure Functions Core Tools** for local runs.
