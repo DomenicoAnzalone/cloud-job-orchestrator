@@ -1,7 +1,9 @@
 import logging
 import azure.functions as func
+
 from src.services.jobs_service import create_job, get_job_status, get_job_output_link
 from src.services.worker_service import process_job_message
+from src.services.realtime_service import negotiate_realtime
 
 app = func.FunctionApp()
 
@@ -34,3 +36,12 @@ def jobs_get_output_link_api(req: func.HttpRequest) -> func.HttpResponse:
 )
 def jobs_worker(msg: func.ServiceBusMessage) -> None:
     process_job_message(msg)
+
+@app.function_name(name="RealtimeNegotiateApi")
+@app.route(
+    route="realtime/negotiate",
+    methods=["GET", "POST"],
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+def realtime_negotiate_api(req: func.HttpRequest) -> func.HttpResponse:
+    return negotiate_realtime(req)
