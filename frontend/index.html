@@ -356,25 +356,32 @@
         signalrConnection.onreconnecting(() => {
           realtimeConnected = false;
           setRealtimeStatus("reconnecting");
+          startPolling();
           log("Realtime reconnecting...");
         });
 
         signalrConnection.onreconnected(() => {
           realtimeConnected = true;
           setRealtimeStatus("connected");
+          stopPolling()
           log("Realtime reconnected.");
         });
 
         signalrConnection.onclose(() => {
           realtimeConnected = false;
           setRealtimeStatus("disconnected");
-          log("Realtime disconnected.");
+
+          startPolling();
+
+          log("Realtime disconnected, polling activated.");
         });
 
         await signalrConnection.start();
 
         realtimeConnected = true;
         setRealtimeStatus("connected");
+
+        stopPolling();
 
         log(`Realtime connected for pk=${getPk()}`);
 
@@ -509,7 +516,11 @@
 
         await connectRealtime();
         await refreshStatus();
-        startPolling();
+
+        if(!realtimeConnected){
+          startPolling();
+        }
+
       } catch (err) {
         log(`Create job failed: ${err.message}`);
         setStatus("failed");
@@ -527,9 +538,7 @@
       }
 
       const url = `${getApiBase()}/jobs/${encodeURIComponent(currentJobId)}?pk=${encodeURIComponent(getPk())}`;
-
       const res = await fetch(url, { method: "GET" });
-
       const data = await parseResponse(res);
 
       applyJobSnapshot(data, "poll");
