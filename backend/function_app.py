@@ -7,8 +7,6 @@ from src.services.realtime_service import negotiate_realtime
 
 app = func.FunctionApp()
 
-QUEUE_NAME = "q-jobs"
-
 @app.function_name(name="JobsCreateApi")
 @app.route(route="jobs", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 def create_job_api(req: func.HttpRequest) -> func.HttpResponse: 
@@ -31,7 +29,7 @@ def jobs_get_output_link_api(req: func.HttpRequest) -> func.HttpResponse:
 @app.function_name(name="JobsWorker")
 @app.service_bus_queue_trigger(
     arg_name="msg",
-    queue_name=QUEUE_NAME,
+    queue_name="q-jobs",
     connection="SERVICEBUS_CONNECTION",
 )
 def jobs_worker(msg: func.ServiceBusMessage) -> None:

@@ -18,6 +18,7 @@ const els = {
     state: document.getElementById("loginStatus"),
 };
 
+let currentUserId = null;
 let currentJobId = null;
 let pollHandle = null;
 let signalrConnection = null;
@@ -35,7 +36,13 @@ window.onload = async () => {
     } else {
         consoleLog("Existing authentication token found...");
         document.getElementById("authOverlay").style.display = "none";
-        document.getElementById("subtitle").textContent = `Bentornado: ${msalInstance.getActiveAccount().name}`;
+        const account = msalInstance.getActiveAccount();
+        currentUserId = getUserIdFromToken();
+
+        document.getElementById("subtitle").textContent =
+        `Bentornato: ${account.name}`;
+
+        document.getElementById("pkDisplay").textContent = currentUserId;
     }
 };
 
@@ -47,6 +54,8 @@ async function authentication() {
 
     try {
         await login();
+        currentUserId = getUserIdFromToken();
+        document.getElementById("pkDisplay").textContent = currentUserId;
         loginSucceeded = true;
     } catch (e) {
         els.state.textContent = "Login cancelled or failed.";
@@ -124,7 +133,7 @@ async function connectRealtime() {
 
     try {
 
-    const negotiateRes = await fetch(negotiateUrl);
+    const negotiateRes = await apiFetch(negotiateUrl);
     const negotiateData = await negotiateRes.json();
 
     signalrConnection = new signalR.HubConnectionBuilder()
@@ -245,7 +254,7 @@ function getApiBase() {
 }
 
 function getPk() {
-    return els.pk.value.trim() || "demo-user";
+    return currentUserId;
 }
 
 async function parseResponse(res) {
@@ -282,12 +291,12 @@ async function createJob() {
     resetView();
 
     const payload = {
-    pk: getPk(),
-    type: "csv_cleaning_validation",
-    parameters: {
-        delimiter: ",",
-        trimWhitespace: true,
-    },
+        pk: getPk(),
+        type: "csv_cleaning_validation",
+        parameters: {
+            delimiter: ",",
+            trimWhitespace: true,
+        },
     };
 
     if (els.forceFail.checked) {
@@ -299,7 +308,7 @@ async function createJob() {
     els.createBtn.disabled = true;
 
     try {
-    const res = await fetch(`${getApiBase()}/jobs`, {
+    const res = await apiFetch(`${getApiBase()}/jobs`, {
         method: "POST",
         headers: {
         "Content-Type": "application/json",
@@ -334,24 +343,24 @@ async function createJob() {
 async function refreshStatus() {
 
     if (!currentJobId) {
-    log("No job available to refresh.");
-    return;
+        log("No job available to refresh.");
+        return;
     }
 
     const url = `${getApiBase()}/jobs/${encodeURIComponent(currentJobId)}?pk=${encodeURIComponent(getPk())}`;
-    const res = await fetch(url, { method: "GET" });
+    const res = await apiFetch(url, { method: "GET" });
     const data = await parseResponse(res);
 
     applyJobSnapshot(data, "poll");
 
     log(
-    `Status refreshed: status=${data.status ?? "-"} progress=${data.progress ?? "-"} attempts=${data.attempts ?? "-"}`
+        `Status refreshed: status=${data.status ?? "-"} progress=${data.progress ?? "-"} attempts=${data.attempts ?? "-"}`
     );
 
     const status = (data.status || "unknown").toLowerCase();
 
     if (status === "done" || status === "failed" || status === "canceled") {
-    stopPolling();
+        
     }
 }
 
@@ -365,7 +374,7 @@ async function downloadOutput() {
 
     try {
     const url = `${getApiBase()}/jobs/${encodeURIComponent(currentJobId)}/output-link?pk=${encodeURIComponent(getPk())}`;
-    const res = await fetch(url, { method: "GET" });
+    const res = await apiFetch(url, { method: "GET" });
     const data = await parseResponse(res);
 
     els.downloadInfo.textContent = JSON.stringify(data, null, 2);

@@ -10,3 +10,8 @@ azure-cosmos
 # input/output files
 azure-storage-blob
 azure-identity
+
+# Authentication
+PyJWT==2.8.0
+cryptography==42.0.5
+requests==2.31.0

@@ -8,6 +8,7 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError, CosmosHttpRespo
 from src.shared.cosmos_utils import get_cosmos_container
 from src.shared.servicebus_utils import enqueue_job
 from src.shared.blob_utils import generate_blob_read_sas_url
+from src.shared.auth_utils import get_user_from_request
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -26,10 +27,13 @@ def create_job(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     # TO-DO: validare payload
-    pk = payload.get("pk") or "demo-user"
+
+    # check authoritzation and get user by token
+    user = get_user_from_request(req)
+    pk = user["userId"]
     job_type = payload.get("type") or "demo"
 
-    # TO-DO: validare pk & job_type
+    # TO-DO: validare job_type
 
     job_id = str(uuid.uuid4())
     now = utc_now_iso()
@@ -102,10 +106,9 @@ def get_job_status(req: func.HttpRequest) -> func.HttpResponse:
             headers={"x-correlation-id": correlation_id},
         )
 
-    # congelato per WS, 
-    # TO-DO Da inserire in futuro un cortrollo per vedere se nell'URL è presente il parametro dell'utente
-    # TO-DO Controllare se l'utente è autorizzato a vedere lo status del job (es. se pk è presente, deve corrispondere al job)
-    pk = req.params.get("pk") or "demo-user"
+    # check authoritzation and get user by token
+    user = get_user_from_request(req)
+    pk = user["userId"]
 
     # Check formato corretto
     try:
@@ -180,7 +183,9 @@ def get_job_output_link(req: func.HttpRequest) -> func.HttpResponse:
             headers={"x-correlation-id": correlation_id},
         )
 
-    pk = req.params.get("pk") or "demo-user"
+    # check authoritzation and get user by token
+    user = get_user_from_request(req)
+    pk = user["userId"]
 
     try:
         uuid.UUID(job_id)
