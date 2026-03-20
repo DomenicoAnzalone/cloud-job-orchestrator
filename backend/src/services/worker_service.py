@@ -12,10 +12,8 @@ from src.shared.signalr_utils import send_signalr_message_to_user
 
 TERMINAL_SKIP_STATUSES = {"done", "canceled"}
 
-
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
 
 def _replace_job(container, job_doc: dict) -> None:
     job_doc["updatedAt"] = utc_now_iso()
@@ -35,7 +33,7 @@ def _build_realtime_job_payload(job_doc: dict) -> dict:
 
 def _publish_job_update(job_doc: dict, correlation_id: str | None) -> None:
     try:
-        user_id = str(job_doc.get("pk") or "demo-user")
+        user_id = str(job_doc.get("pk"))
         send_signalr_message_to_user(
             user_id=user_id,
             target="jobUpdated",

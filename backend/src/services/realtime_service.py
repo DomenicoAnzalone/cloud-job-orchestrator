@@ -4,11 +4,15 @@ import uuid
 import azure.functions as func
 
 from src.shared.signalr_utils import build_negotiate_payload
+from src.shared.auth_utils import get_user_from_request
 
 
 def negotiate_realtime(req: func.HttpRequest) -> func.HttpResponse:
     correlation_id = req.headers.get("x-correlation-id") or str(uuid.uuid4())
-    pk = req.params.get("pk") or "demo-user"
+    
+    # check authoritzation and get user by token
+    user = get_user_from_request(req)
+    pk = user["userId"]
 
     try:
         payload = build_negotiate_payload(user_id=pk)

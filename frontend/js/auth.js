@@ -16,10 +16,6 @@ async function login() {
   sessionStorage.setItem("id_token", loginResponse.idToken);
   consoleLog("Login successful. Authentication token stored.");
   msalInstance.setActiveAccount(loginResponse.account);
-
-  // DEBUG
-  const token = await getAccessToken();
-  console.log(token);
 }
 
 async function logout() {
@@ -61,6 +57,15 @@ async function apiFetch(url, options = {}) {
       "Content-Type": "application/json"
     }
   });
+}
+
+function getUserIdFromToken() {
+  const token = getToken();
+
+  if (!token) return null;
+
+  const payload = JSON.parse(atob(token.split(".")[1]));
+  return payload.oid;
 }
 
 function getToken() {

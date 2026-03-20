@@ -18,6 +18,7 @@ const els = {
     state: document.getElementById("loginStatus"),
 };
 
+let currentUserId = null;
 let currentJobId = null;
 let pollHandle = null;
 let signalrConnection = null;
@@ -35,7 +36,13 @@ window.onload = async () => {
     } else {
         consoleLog("Existing authentication token found...");
         document.getElementById("authOverlay").style.display = "none";
-        document.getElementById("subtitle").textContent = `Bentornado: ${msalInstance.getActiveAccount().name}`;
+        const account = msalInstance.getActiveAccount();
+        currentUserId = getUserIdFromToken();
+
+        document.getElementById("subtitle").textContent =
+        `Bentornato: ${account.name}`;
+
+        document.getElementById("pkDisplay").textContent = currentUserId;
     }
 };
 
@@ -47,6 +54,8 @@ async function authentication() {
 
     try {
         await login();
+        currentUserId = getUserIdFromToken();
+        document.getElementById("pkDisplay").textContent = currentUserId;
         loginSucceeded = true;
     } catch (e) {
         els.state.textContent = "Login cancelled or failed.";
@@ -245,7 +254,7 @@ function getApiBase() {
 }
 
 function getPk() {
-    return els.pk.value.trim() || "demo-user";
+    return currentUserId;
 }
 
 async function parseResponse(res) {
