@@ -124,7 +124,7 @@ async function connectRealtime() {
 
     try {
 
-    const negotiateRes = await fetch(negotiateUrl);
+    const negotiateRes = await apiFetch(negotiateUrl);
     const negotiateData = await negotiateRes.json();
 
     signalrConnection = new signalR.HubConnectionBuilder()
@@ -282,12 +282,12 @@ async function createJob() {
     resetView();
 
     const payload = {
-    pk: getPk(),
-    type: "csv_cleaning_validation",
-    parameters: {
-        delimiter: ",",
-        trimWhitespace: true,
-    },
+        pk: getPk(),
+        type: "csv_cleaning_validation",
+        parameters: {
+            delimiter: ",",
+            trimWhitespace: true,
+        },
     };
 
     if (els.forceFail.checked) {
@@ -299,7 +299,7 @@ async function createJob() {
     els.createBtn.disabled = true;
 
     try {
-    const res = await fetch(`${getApiBase()}/jobs`, {
+    const res = await apiFetch(`${getApiBase()}/jobs`, {
         method: "POST",
         headers: {
         "Content-Type": "application/json",
@@ -334,24 +334,24 @@ async function createJob() {
 async function refreshStatus() {
 
     if (!currentJobId) {
-    log("No job available to refresh.");
-    return;
+        log("No job available to refresh.");
+        return;
     }
 
     const url = `${getApiBase()}/jobs/${encodeURIComponent(currentJobId)}?pk=${encodeURIComponent(getPk())}`;
-    const res = await fetch(url, { method: "GET" });
+    const res = await apiFetch(url, { method: "GET" });
     const data = await parseResponse(res);
 
     applyJobSnapshot(data, "poll");
 
     log(
-    `Status refreshed: status=${data.status ?? "-"} progress=${data.progress ?? "-"} attempts=${data.attempts ?? "-"}`
+        `Status refreshed: status=${data.status ?? "-"} progress=${data.progress ?? "-"} attempts=${data.attempts ?? "-"}`
     );
 
     const status = (data.status || "unknown").toLowerCase();
 
     if (status === "done" || status === "failed" || status === "canceled") {
-    stopPolling();
+        
     }
 }
 
@@ -365,7 +365,7 @@ async function downloadOutput() {
 
     try {
     const url = `${getApiBase()}/jobs/${encodeURIComponent(currentJobId)}/output-link?pk=${encodeURIComponent(getPk())}`;
-    const res = await fetch(url, { method: "GET" });
+    const res = await apiFetch(url, { method: "GET" });
     const data = await parseResponse(res);
 
     els.downloadInfo.textContent = JSON.stringify(data, null, 2);
