@@ -111,3 +111,54 @@ def send_signalr_message_to_user(user_id: str, target: str, arguments: list[Any]
     with urllib.request.urlopen(req) as response:
         if response.status >= 300:
             raise RuntimeError(f"SignalR publish failed with HTTP {response.status}")
+
+def send_job_event(user_id: str, event: dict) -> None:
+    
+    # Wrapper standard per eventi job → forza target e schema unico.
+    send_signalr_message_to_user(
+        user_id=user_id,
+        target="jobUpdated",
+        arguments=[event],
+    )
+
+def build_status_event(job_id: str, status: str) -> dict:
+    return {
+        "jobId": job_id,
+        "type": "status",
+        "status": status,
+    }
+
+
+def build_progress_event(job_id: str, progress: float, status: str = "processing") -> dict:
+    return {
+        "jobId": job_id,
+        "type": "progress",
+        "status": status,
+        "progress": progress,
+    }
+
+
+def build_completed_event(job_id: str, download_url: str | None = None) -> dict:
+    return {
+        "jobId": job_id,
+        "type": "completed",
+        "status": "done",
+        "downloadUrl": download_url,
+    }
+
+
+def build_failed_event(job_id: str, error: dict) -> dict:
+    return {
+        "jobId": job_id,
+        "type": "failed",
+        "status": "failed",
+        "error": error,
+    }
+
+
+def build_log_event(job_id: str, message: str) -> dict:
+    return {
+        "jobId": job_id,
+        "type": "log",
+        "message": message,
+    }

@@ -24,6 +24,8 @@ let pollHandle = null;
 let signalrConnection = null;
 let realtimeConnected = false;
 
+const jobsMap = new Map();
+
 window.onload = async () => {
     consoleLog("Application loading...");
 
@@ -144,17 +146,11 @@ async function connectRealtime() {
         .configureLogging(signalR.LogLevel.Warning)
         .build();
 
-    signalrConnection.on("jobUpdated", (payload) => {
+    signalrConnection.on("jobUpdated", (event) => {
 
-        if (!payload || !payload.jobId) return;
+        if (!event || !event.jobId) return;
 
-        if (!currentJobId || payload.jobId !== currentJobId) return;
-
-        applyJobSnapshot(payload, "realtime");
-
-        log(
-        `Realtime update: status=${payload.status ?? "-"} progress=${payload.progress ?? "-"} attempts=${payload.attempts ?? "-"}`
-        );
+        handleJobEvent(event);
 
     });
 
@@ -195,6 +191,64 @@ async function connectRealtime() {
     setRealtimeStatus("error");
     log(`Realtime connection failed: ${err.message}`);
 
+    }
+}
+
+function handleJobEvent(event) {
+
+    if (!event.type) {
+        console.warn("Malformed event", event);
+        return;
+    }
+
+    const jobId = event.jobId;
+
+    if (!jobsMap.has(jobId)) {
+        jobsMap.set(jobId, {
+            jobId,
+            status: "unknown",
+            progress: 0,
+            logs: []
+        });
+    }
+
+    const job = jobsMap.get(jobId);
+
+    switch (event.type) {
+
+        case "status":
+            job.status = event.status;
+            break;
+
+        case "progress":
+            job.status = event.status ?? job.status;
+            job.progress = event.progress ?? job.progress;
+            break;
+
+        case "log":
+            job.logs.push(event.message);
+            break;
+
+        case "completed":
+            job.status = "done";
+            job.downloadUrl = event.downloadUrl;
+            break;
+
+        case "failed":
+            job.status = "failed";
+            job.error = event.error;
+            break;
+    }
+
+    consoleLog(`Job ${jobId} updated: type=${event.type}`);
+
+    // TEMP: mantieni compatibilità con UI attuale
+    if (jobId === currentJobId) {
+        applyJobSnapshot({
+            status: job.status,
+            progress: job.progress,
+            error: job.error,
+        }, "realtime");
     }
 }
 
