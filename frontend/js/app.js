@@ -1,6 +1,5 @@
 const els = {
     apiBase: document.getElementById("apiBase"),
-    pk: document.getElementById("pk"),
     forceFail: document.getElementById("forceFail"),
     createBtn: document.getElementById("createBtn"),
     refreshBtn: document.getElementById("refreshBtn"),
@@ -23,7 +22,7 @@ let realtimeConnected = false;
 const jobsMap = new Map(); // jobId -> { data + domRefs }
 
 window.onload = async () => {
-    consoleLog("Application loading...");
+    log("Application loading...");
 
     const isLogged = await isUserLoggedIn();
 
@@ -32,7 +31,7 @@ window.onload = async () => {
         document.getElementById("authOverlay").style.display = "flex";
         els.state.textContent = "Not authenticated. Please log in.";
     } else {
-        consoleLog("Existing authentication token found...");
+        log("Existing authentication token found...");
         document.getElementById("authOverlay").style.display = "none";
         const account = msalInstance.getActiveAccount();
         currentUserId = getUserIdFromToken();
@@ -56,6 +55,7 @@ async function authentication() {
         document.getElementById("pkDisplay").textContent = currentUserId;
         loginSucceeded = true;
     } catch (e) {
+        console.error("Login failed:", e);
         els.state.textContent = "Login cancelled or failed.";
     }
 
@@ -74,37 +74,9 @@ async function authentication() {
     els.loginBtn.disabled = false;
 }
 
-async function loggingout() {
-    logout();
-
-    document.getElementById("authOverlay").style.display = "flex";
-    document.getElementById("app").classList.add("blurred");
-    document.getElementById("subtitle").textContent = `Bentornato:`;
-    els.state.textContent = "";
-}
-
 function setRealtimeStatus(value) {
     // temporaneamente disabilitato (no elemento in UI)
     console.log("Realtime status:", value);
-}
-
-function applyJobSnapshot(data, source = "realtime") {
-    // compatibilità minimale → niente DOM globale
-    log(`Job snapshot via ${source}: status=${data.status} progress=${data.progress}`);
-}
-
-async function disconnectRealtime() {
-    if (signalrConnection) {
-    try {
-        await signalrConnection.stop();
-    } catch (_) {
-        // ignore
-    }
-    }
-
-    signalrConnection = null;
-    realtimeConnected = false;
-    setRealtimeStatus("disconnected");
 }
 
 async function connectRealtime() {
@@ -176,6 +148,20 @@ async function connectRealtime() {
     log(`Realtime connection failed: ${err.message}`);
 
     }
+}
+
+async function disconnectRealtime() {
+    if (signalrConnection) {
+    try {
+        await signalrConnection.stop();
+    } catch (_) {
+        // ignore
+    }
+    }
+
+    signalrConnection = null;
+    realtimeConnected = false;
+    setRealtimeStatus("disconnected");
 }
 
 function handleJobEvent(event) {
@@ -265,16 +251,7 @@ function handleJobEvent(event) {
             break;
     }
 
-    consoleLog(`Job ${jobId} updated: type=${event.type}`);
-
-    // TEMP: mantieni compatibilità con UI attuale
-    if (jobId === currentJobId) {
-        applyJobSnapshot({
-            status: job.status,
-            progress: job.progress,
-            error: job.error,
-        }, "realtime");
-    }
+    log(`Job ${jobId} updated: type=${event.type}`);
 }
 
 function createJobCard(jobId) {
@@ -301,18 +278,9 @@ function createJobCard(jobId) {
     };
 }
 
-function consoleLog(message) {
-    console.log(message);
-    log(`Log: ${message}`);
-}
-
 function log(message) {
     const ts = new Date().toLocaleTimeString();
     console.log(`[${ts}] ${message}`);
-}
-
-function setStatus(status) {
-    // Da rimuovere 
 }
 
 function resetView() {
@@ -368,18 +336,6 @@ async function parseResponse(res) {
     }
 
     return data;
-}
-
-function formatError(errorPayload) {
-    if (!errorPayload) {
-    return "No error";
-    }
-
-    if (typeof errorPayload === "string") {
-    return errorPayload;
-    }
-
-    return JSON.stringify(errorPayload, null, 2);
 }
 
 async function createJob() {
@@ -438,15 +394,9 @@ async function createJob() {
 
     } catch (err) {
         log(`Create job failed: ${err.message}`);
-        setStatus("failed");
-        log(`Create job failed: ${err.message}`);
     } finally {
         els.createBtn.disabled = false;
     }
-}
-
-async function refreshStatus() {
-    return refreshAllJobs();
 }
 
 async function refreshJobStatus(jobId) {
@@ -539,7 +489,7 @@ async function downloadOutput() {
 }
 
 els.createBtn.addEventListener("click", createJob);
-els.refreshBtn.addEventListener("click", refreshStatus);
+els.refreshBtn.addEventListener("click", refreshAllJobs);
 els.downloadBtn.addEventListener("click", downloadOutput);
 if (els.loginBtn) {
     els.loginBtn.addEventListener("click", authentication);

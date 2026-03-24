@@ -14,7 +14,7 @@ async function login() {
   });
 
   sessionStorage.setItem("id_token", loginResponse.idToken);
-  consoleLog("Login successful. Authentication token stored.");
+  log("Login successful. Authentication token stored.");
   msalInstance.setActiveAccount(loginResponse.account);
 }
 
@@ -23,7 +23,7 @@ async function logout() {
   msalInstance.setActiveAccount(null);
   sessionStorage.removeItem("id_token");
 
-  consoleLog("User logged out.");
+  log("User logged out.");
 
   // reload app
   window.location.reload();

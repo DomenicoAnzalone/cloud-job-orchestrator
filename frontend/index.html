@@ -63,6 +63,13 @@
         <label for="forceFail" style="margin: 0;">Force failure demo (parameters.fail=true)</label>
       </div>
 
+      <div class="actions">
+        <button id="createBtn">Create Job</button>
+        <button id="refreshBtn" class="secondary" disabled>Refresh Status</button>
+        <button id="downloadBtn" class="secondary" disabled>Download Output</button>
+        <button id="logoutBtn" class="secondary">Logout</button>
+      </div>
+
       <div id="jobsContainer" class="container"></div>
 
       <template id="jobCardTemplate">
@@ -89,12 +96,6 @@
         </div>
       </template>
 
-      <div class="actions">
-        <button id="createBtn">Create Job</button>
-        <button id="refreshBtn" class="secondary" disabled>Refresh Status</button>
-        <button id="downloadBtn" class="secondary" disabled>Download Output</button>
-        <button id="logoutBtn" class="secondary">Logout</button>
-      </div>
     </div>
   </div>
 </body>
