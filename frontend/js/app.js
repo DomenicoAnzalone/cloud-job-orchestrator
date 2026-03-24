@@ -3,7 +3,6 @@ const els = {
     forceFail: document.getElementById("forceFail"),
     createBtn: document.getElementById("createBtn"),
     refreshBtn: document.getElementById("refreshBtn"),
-    downloadBtn: document.getElementById("downloadBtn"),
     loginBtn: document.getElementById("loginBtn"),
     logoutBtn: document.getElementById("logoutBtn"),
     state: document.getElementById("loginStatus"),
@@ -12,7 +11,6 @@ const els = {
 };
 
 let currentUserId = null;
-let currentJobId = null;
 let pollHandle = null;
 let signalrConnection = null;
 
@@ -84,7 +82,7 @@ async function connectRealtime() {
     await disconnectRealtime();
 
     const negotiateUrl =
-    `${getApiBase()}/realtime/negotiate?pk=${encodeURIComponent(getPk())}`;
+    `${getApiBase()}/realtime/negotiate?pk=${encodeURIComponent(currentUserId)}`;
 
     setRealtimeStatus("connecting");
 
@@ -140,7 +138,7 @@ async function connectRealtime() {
 
     stopPolling();
 
-    log(`Realtime connected for pk=${getPk()}`);
+    log(`Realtime connected for pk=${currentUserId}`);
 
     } catch (err) {
 
@@ -220,7 +218,7 @@ function handleJobEvent(event) {
 
             job.downloadBtn.onclick = async () => {
                 try {
-                    const url = `${getApiBase()}/jobs/${encodeURIComponent(jobId)}/output-link?pk=${encodeURIComponent(getPk())}`;
+                    const url = `${getApiBase()}/jobs/${encodeURIComponent(jobId)}/output-link?pk=${encodeURIComponent(currentUserId)}`;
                     const res = await apiFetch(url);
                     const data = await parseResponse(res);
 
@@ -284,13 +282,11 @@ function log(message) {
 }
 
 function resetView() {
-    currentJobId = null;
     stopPolling();
 
     setRealtimeStatus("disconnected");
 
     els.refreshBtn.disabled = true;
-    els.downloadBtn.disabled = true;
 }
 
 function stopPolling() {
@@ -316,10 +312,6 @@ function getApiBase() {
     return els.apiBase.value.trim().replace(/\/+$/, "");
 }
 
-function getPk() {
-    return currentUserId;
-}
-
 async function parseResponse(res) {
     const text = await res.text();
     let data = {};
@@ -342,7 +334,7 @@ async function createJob() {
     resetView();
 
     const payload = {
-        pk: getPk(),
+        pk: currentUserId,
         type: "csv_cleaning_validation",
         parameters: {
             delimiter: ",",
@@ -374,7 +366,6 @@ async function createJob() {
     const data = await parseResponse(res);
 
     const jobId = data.jobId;
-    currentJobId = jobId;
 
     // forza creazione card immediata
     handleJobEvent({
@@ -383,8 +374,6 @@ async function createJob() {
         status: "creating"
     });
     els.refreshBtn.disabled = false;
-
-    log(`Job created successfully. jobId=${currentJobId}`);
 
     await refreshJobStatus(jobId);
 
@@ -400,7 +389,7 @@ async function createJob() {
 }
 
 async function refreshJobStatus(jobId) {
-    const url = `${getApiBase()}/jobs/${encodeURIComponent(jobId)}?pk=${encodeURIComponent(getPk())}`;
+    const url = `${getApiBase()}/jobs/${encodeURIComponent(jobId)}?pk=${encodeURIComponent(currentUserId)}`;
     const res = await apiFetch(url, { method: "GET" });
     const data = await parseResponse(res);
 
@@ -446,6 +435,15 @@ async function refreshAllJobs() {
 
         const results = await Promise.allSettled(
             jobIds.map(async (jobId) => {
+                const job = jobsMap.get(jobId);
+                if (!job) {
+                    return;
+                }
+
+                if (job.status === "done" || job.status === "failed") {
+                    return;
+                }
+
                 const data = await refreshJobStatus(jobId);
                 log(
                     `Status refreshed: job=${jobId} status=${data.status ?? "-"} progress=${data.progress ?? "-"} attempts=${data.attempts ?? "-"}`
@@ -462,35 +460,8 @@ async function refreshAllJobs() {
     }
 }
 
-async function downloadOutput() {
-    if (!currentJobId) {
-    log("No job available for output download.");
-    return;
-    }
-
-    log("Requesting output link...");
-
-    try {
-    const url = `${getApiBase()}/jobs/${encodeURIComponent(currentJobId)}/output-link?pk=${encodeURIComponent(getPk())}`;
-    const res = await apiFetch(url, { method: "GET" });
-    const data = await parseResponse(res);
-
-    log(`Download URL received: ${data.url}`);
-    log(`Download URL received: ${data.downloadUrl}`);
-
-    if (!data.downloadUrl) {
-        throw new Error("Missing download URL in response");
-    }
-
-    window.open(data.downloadUrl, "_blank", "noopener,noreferrer");
-    } catch (err) {
-        log(`Output link request failed: ${err.message}`);
-    }
-}
-
 els.createBtn.addEventListener("click", createJob);
 els.refreshBtn.addEventListener("click", refreshAllJobs);
-els.downloadBtn.addEventListener("click", downloadOutput);
 if (els.loginBtn) {
     els.loginBtn.addEventListener("click", authentication);
 }
