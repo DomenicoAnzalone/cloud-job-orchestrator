@@ -31,13 +31,24 @@ window.onload = async () => {
     } else {
         log("Existing authentication token found...");
         document.getElementById("authOverlay").style.display = "none";
-        const account = msalInstance.getActiveAccount();
+
+        const account =
+        msalInstance.getActiveAccount() ?? msalInstance.getAllAccounts()[0] ?? null;
+
+        if (account) {
+            msalInstance.setActiveAccount(account);
+        }
+
         currentUserId = getUserIdFromToken();
 
-        document.getElementById("subtitle").textContent =
-        `Bentornato: ${account.name}`;
+        if (!currentUserId) {
+            console.warn("User id not available from token.");
+            document.getElementById("pkDisplay").textContent = "-";
+        }
 
-        document.getElementById("pkDisplay").textContent = currentUserId;
+        const displayName = account?.name ?? account?.username ?? "utente";
+        document.getElementById("subtitle").textContent = `Bentornato: ${displayName}`;
+            document.getElementById("pkDisplay").textContent = currentUserId;
     }
 };
 
@@ -50,6 +61,12 @@ async function authentication() {
     try {
         await login();
         currentUserId = getUserIdFromToken();
+
+        if (!currentUserId) {
+            console.warn("User id not available from token.");
+            document.getElementById("pkDisplay").textContent = "-";
+        }
+        
         document.getElementById("pkDisplay").textContent = currentUserId;
         loginSucceeded = true;
     } catch (e) {
@@ -62,7 +79,10 @@ async function authentication() {
     if (ok) {
         document.getElementById("authOverlay").style.display = "none";
         document.getElementById("app").classList.remove("blurred");
-        document.getElementById("subtitle").textContent = `Bentornato: ${msalInstance.getActiveAccount().name}`;
+        const account = msalInstance.getActiveAccount() ?? msalInstance.getAllAccounts()[0] ?? null;
+
+        const displayName = account?.name ?? account?.username ?? "utente";
+        document.getElementById("subtitle").textContent = `Bentornato: ${displayName}`;
         els.state.textContent = "";
     } else if (loginSucceeded) {
         // login ok ma stato non valido → raro ma gestito
