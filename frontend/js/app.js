@@ -5,26 +5,22 @@ const els = {
     createBtn: document.getElementById("createBtn"),
     refreshBtn: document.getElementById("refreshBtn"),
     downloadBtn: document.getElementById("downloadBtn"),
-    jobIdValue: document.getElementById("jobIdValue"),
-    statusValue: document.getElementById("statusValue"),
-    progressValue: document.getElementById("progressValue"),
-    attemptsValue: document.getElementById("attemptsValue"),
-    errorBox: document.getElementById("errorBox"),
-    downloadInfo: document.getElementById("downloadInfo"),
-    logBox: document.getElementById("logBox"),
-    realtimeValue: document.getElementById("realtimeValue"),
     loginBtn: document.getElementById("loginBtn"),
     logoutBtn: document.getElementById("logoutBtn"),
     state: document.getElementById("loginStatus"),
+    jobsContainer: document.getElementById("jobsContainer"),
+    jobCardTemplate: document.getElementById("jobCardTemplate"),
 };
 
 let currentUserId = null;
 let currentJobId = null;
 let pollHandle = null;
 let signalrConnection = null;
+
+let pollingInProgress = false;
 let realtimeConnected = false;
 
-const jobsMap = new Map();
+const jobsMap = new Map(); // jobId -> { data + domRefs }
 
 window.onload = async () => {
     consoleLog("Application loading...");
@@ -88,26 +84,13 @@ async function loggingout() {
 }
 
 function setRealtimeStatus(value) {
-    els.realtimeValue.textContent = value;
+    // temporaneamente disabilitato (no elemento in UI)
+    console.log("Realtime status:", value);
 }
 
 function applyJobSnapshot(data, source = "realtime") {
-    const status = (data.status || "unknown").toLowerCase();
-
-    setStatus(status);
-    els.progressValue.textContent = data.progress ?? "-";
-    els.attemptsValue.textContent = data.attempts ?? "-";
-    els.errorBox.textContent = formatError(data.error);
-
-    if (status === "done") {
-    els.downloadBtn.disabled = false;
-    log(`Job reached terminal state via ${source}: done`);
-    } else if (status === "failed" || status === "canceled") {
-    els.downloadBtn.disabled = true;
-    log(`Job reached terminal state via ${source}: ${status}`);
-    } else {
-    els.downloadBtn.disabled = true;
-    }
+    // compatibilità minimale → niente DOM globale
+    log(`Job snapshot via ${source}: status=${data.status} progress=${data.progress}`);
 }
 
 async function disconnectRealtime() {
@@ -158,22 +141,23 @@ async function connectRealtime() {
         realtimeConnected = false;
         setRealtimeStatus("reconnecting");
         startPolling();
+        refreshAllJobs().catch(() => {});
         log("Realtime reconnecting...");
     });
 
     signalrConnection.onreconnected(() => {
         realtimeConnected = true;
         setRealtimeStatus("connected");
-        stopPolling()
+        stopPolling();
+        refreshAllJobs().catch(() => {});
         log("Realtime reconnected.");
     });
 
     signalrConnection.onclose(() => {
         realtimeConnected = false;
         setRealtimeStatus("disconnected");
-
         startPolling();
-
+        refreshAllJobs().catch(() => {});
         log("Realtime disconnected, polling activated.");
     });
 
@@ -204,11 +188,15 @@ function handleJobEvent(event) {
     const jobId = event.jobId;
 
     if (!jobsMap.has(jobId)) {
+
+        const dom = createJobCard(jobId);
+
         jobsMap.set(jobId, {
             jobId,
             status: "unknown",
             progress: 0,
-            logs: []
+            logs: [],
+            ...dom
         });
     }
 
@@ -218,25 +206,62 @@ function handleJobEvent(event) {
 
         case "status":
             job.status = event.status;
+            job.statusEl.textContent = event.status;
             break;
 
         case "progress":
             job.status = event.status ?? job.status;
             job.progress = event.progress ?? job.progress;
+
+            job.statusEl.textContent = job.status;
+            job.progressEl.textContent = job.progress;
             break;
 
         case "log":
             job.logs.push(event.message);
+            job.logBox.textContent =
+                `[${new Date().toLocaleTimeString()}] ${event.message}\n` +
+                job.logBox.textContent;
             break;
 
         case "completed":
             job.status = "done";
-            job.downloadUrl = event.downloadUrl;
+            job.progress = 1;
+            job.statusEl.textContent = "done";
+            job.progressEl.textContent = job.progress;
+
+            job.downloadBtn.disabled = false;
+
+            job.downloadBtn.onclick = async () => {
+                try {
+                    const url = `${getApiBase()}/jobs/${encodeURIComponent(jobId)}/output-link?pk=${encodeURIComponent(getPk())}`;
+                    const res = await apiFetch(url);
+                    const data = await parseResponse(res);
+
+                    console.log("DOWNLOAD RESPONSE:", data);
+
+                    if (!data.downloadUrl) {
+                        throw new Error("Missing download URL");
+                    }
+
+                    window.open(data.downloadUrl, "_blank", "noopener,noreferrer");
+
+                } catch (err) {
+                    log(`Download failed: ${err.message}`);
+                }
+            };
+
             break;
 
         case "failed":
             job.status = "failed";
+            job.statusEl.textContent = "failed";
+
             job.error = event.error;
+
+            job.logBox.textContent =
+                `[ERROR] ${JSON.stringify(event.error)}\n` +
+                job.logBox.textContent;
             break;
     }
 
@@ -252,6 +277,30 @@ function handleJobEvent(event) {
     }
 }
 
+function createJobCard(jobId) {
+
+    const clone = jobCardTemplate.content.cloneNode(true);
+
+    const card = clone.querySelector(".job-card");
+    const jobIdEl = clone.querySelector(".job-id");
+    const statusEl = clone.querySelector(".status");
+    const progressEl = clone.querySelector(".progress");
+    const logBox = clone.querySelector(".logBox");
+    const downloadBtn = clone.querySelector(".downloadBtn");
+
+    jobIdEl.textContent = jobId;
+
+    jobsContainer.prepend(card);
+
+    return {
+        card,
+        statusEl,
+        progressEl,
+        logBox,
+        downloadBtn
+    };
+}
+
 function consoleLog(message) {
     console.log(message);
     log(`Log: ${message}`);
@@ -259,25 +308,17 @@ function consoleLog(message) {
 
 function log(message) {
     const ts = new Date().toLocaleTimeString();
-    els.logBox.textContent = `[${ts}] ${message}\n` + els.logBox.textContent;
+    console.log(`[${ts}] ${message}`);
 }
 
 function setStatus(status) {
-    const normalized = (status || "unknown").toLowerCase();
-    els.statusValue.textContent = normalized;
-    els.statusValue.className = `status-pill status-${normalized}`;
+    // Da rimuovere 
 }
 
 function resetView() {
     currentJobId = null;
     stopPolling();
 
-    els.jobIdValue.textContent = "-";
-    els.progressValue.textContent = "-";
-    els.attemptsValue.textContent = "-";
-    els.errorBox.textContent = "No error";
-    els.downloadInfo.textContent = "No output link requested yet";
-    setStatus("idle");
     setRealtimeStatus("disconnected");
 
     els.refreshBtn.disabled = true;
@@ -295,11 +336,11 @@ function startPolling() {
     stopPolling();
 
     pollHandle = setInterval(async () => {
-    try {
-        await refreshStatus();
-    } catch (_) {
-        // already logged
-    }
+        try {
+            await refreshAllJobs();
+        } catch (_) {
+            // already logged
+        }
     }, realtimeConnected ? 15000 : 3000);
 }
 
@@ -361,6 +402,10 @@ async function createJob() {
 
     els.createBtn.disabled = true;
 
+    if (!signalrConnection) {
+        await connectRealtime();
+    }
+
     try {
     const res = await apiFetch(`${getApiBase()}/jobs`, {
         method: "POST",
@@ -372,49 +417,98 @@ async function createJob() {
 
     const data = await parseResponse(res);
 
-    currentJobId = data.jobId;
-    els.jobIdValue.textContent = currentJobId;
+    const jobId = data.jobId;
+    currentJobId = jobId;
+
+    // forza creazione card immediata
+    handleJobEvent({
+        jobId,
+        type: "status",
+        status: "creating"
+    });
     els.refreshBtn.disabled = false;
 
     log(`Job created successfully. jobId=${currentJobId}`);
 
-    await connectRealtime();
-    await refreshStatus();
+    await refreshJobStatus(jobId);
 
     if(!realtimeConnected){
         startPolling();
     }
 
     } catch (err) {
-    log(`Create job failed: ${err.message}`);
-    setStatus("failed");
-    els.errorBox.textContent = err.message;
+        log(`Create job failed: ${err.message}`);
+        setStatus("failed");
+        log(`Create job failed: ${err.message}`);
     } finally {
-    els.createBtn.disabled = false;
+        els.createBtn.disabled = false;
     }
 }
 
 async function refreshStatus() {
+    return refreshAllJobs();
+}
 
-    if (!currentJobId) {
-        log("No job available to refresh.");
-        return;
-    }
-
-    const url = `${getApiBase()}/jobs/${encodeURIComponent(currentJobId)}?pk=${encodeURIComponent(getPk())}`;
+async function refreshJobStatus(jobId) {
+    const url = `${getApiBase()}/jobs/${encodeURIComponent(jobId)}?pk=${encodeURIComponent(getPk())}`;
     const res = await apiFetch(url, { method: "GET" });
     const data = await parseResponse(res);
 
-    applyJobSnapshot(data, "poll");
-
-    log(
-        `Status refreshed: status=${data.status ?? "-"} progress=${data.progress ?? "-"} attempts=${data.attempts ?? "-"}`
-    );
+    handleJobEvent({
+        jobId,
+        type: "progress",
+        status: data.status,
+        progress: data.progress
+    });
 
     const status = (data.status || "unknown").toLowerCase();
 
-    if (status === "done" || status === "failed" || status === "canceled") {
-        
+    if (status === "done") {
+        handleJobEvent({
+            jobId,
+            type: "completed"
+        });
+    } else if (status === "failed") {
+        handleJobEvent({
+            jobId,
+            type: "failed",
+            error: data.error
+        });
+    }
+
+    return data;
+}
+
+async function refreshAllJobs() {
+    if (pollingInProgress) {
+        return;
+    }
+
+    pollingInProgress = true;
+
+    try {
+        const jobIds = Array.from(jobsMap.keys());
+
+        if (jobIds.length === 0) {
+            log("No jobs available to refresh.");
+            return;
+        }
+
+        const results = await Promise.allSettled(
+            jobIds.map(async (jobId) => {
+                const data = await refreshJobStatus(jobId);
+                log(
+                    `Status refreshed: job=${jobId} status=${data.status ?? "-"} progress=${data.progress ?? "-"} attempts=${data.attempts ?? "-"}`
+                );
+            })
+        );
+
+        const failedCount = results.filter((r) => r.status === "rejected").length;
+        if (failedCount > 0) {
+            log(`Polling completed with ${failedCount} failed refresh(es).`);
+        }
+    } finally {
+        pollingInProgress = false;
     }
 }
 
@@ -431,13 +525,16 @@ async function downloadOutput() {
     const res = await apiFetch(url, { method: "GET" });
     const data = await parseResponse(res);
 
-    els.downloadInfo.textContent = JSON.stringify(data, null, 2);
-    log("Output link received. Opening browser tab...");
+    log(`Download URL received: ${data.url}`);
+    log(`Download URL received: ${data.downloadUrl}`);
+
+    if (!data.downloadUrl) {
+        throw new Error("Missing download URL in response");
+    }
 
     window.open(data.downloadUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
-    els.downloadInfo.textContent = err.message;
-    log(`Output link request failed: ${err.message}`);
+        log(`Output link request failed: ${err.message}`);
     }
 }
 
