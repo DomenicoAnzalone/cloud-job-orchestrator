@@ -10,6 +10,7 @@ from src.shared.cosmos_utils import get_cosmos_container
 from src.shared.servicebus_utils import enqueue_job
 from src.shared.blob_utils import generate_blob_read_sas_url, upload_input_file
 from src.shared.auth_utils import get_user_from_request
+from src.shared.job_types import is_valid_job_type
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -39,9 +40,8 @@ def create_job(req: func.HttpRequest) -> func.HttpResponse:
     job_type = req.form.get("type")
     image = req.files.get("image")
 
-    allowed_types = {"background_removal", "image_upscale"}
     logging.info("POST /jobs received request pk=%s type=%s corr=%s", pk, job_type, correlation_id)
-    if job_type not in allowed_types:
+    if not is_valid_job_type(job_type):
         return func.HttpResponse(
             json.dumps({"error": "Invalid job type."}),
             status_code=400,

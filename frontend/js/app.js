@@ -19,6 +19,7 @@ let pollingInProgress = false;
 let realtimeConnected = false;
 
 const jobsMap = new Map(); // jobId -> { data + domRefs }
+const allowedJobTypes = ["background_removal", "image_upscale"];
 
 window.onload = async () => {
     log("Application loading...");
@@ -195,6 +196,15 @@ function handleJobEvent(event) {
 
     const job = jobsMap.get(jobId);
 
+    if (event.jobType && job.jobTypeEl) {
+        job.jobType = event.jobType;
+        job.jobTypeEl.textContent = event.jobType;
+    }
+    if (event.filename && job.filenameEl) {
+        job.filename = event.filename;
+        job.filenameEl.textContent = event.filename;
+    }
+
     switch (event.type) {
 
         case "status":
@@ -269,6 +279,8 @@ function createJobCard(jobId) {
     const jobIdEl = clone.querySelector(".job-id");
     const statusEl = clone.querySelector(".status");
     const progressEl = clone.querySelector(".progress");
+    const filenameEl = clone.querySelector(".filename");
+    const jobTypeEl = clone.querySelector(".job-type");
     const logBox = clone.querySelector(".logBox");
     const downloadBtn = clone.querySelector(".downloadBtn");
 
@@ -280,6 +292,8 @@ function createJobCard(jobId) {
         card,
         statusEl,
         progressEl,
+        filenameEl,
+        jobTypeEl,
         logBox,
         downloadBtn
     };
@@ -377,11 +391,17 @@ async function createJob() {
         return;
     }
 
+    const selectedJobType = getSelectedJobType();
+    if (!selectedJobType) {
+        log(`Create job failed: unsupported job type "${els.jobType.value}".`);
+        return;
+    }
+
     const formData = new FormData();
-    formData.append("type", els.jobType.value);
+    formData.append("type", selectedJobType);
     formData.append("image", image);
 
-    log("Creating job...");
+    log(`Creating job with type=${selectedJobType}...`);
 
     els.createBtn.disabled = true;
 
@@ -403,7 +423,9 @@ async function createJob() {
     handleJobEvent({
         jobId,
         type: "status",
-        status: "creating"
+        status: "creating",
+        jobType: selectedJobType,
+        filename: image.name
     });
     els.refreshBtn.disabled = false;
 
@@ -418,6 +440,11 @@ async function createJob() {
     } finally {
         els.createBtn.disabled = false;
     }
+}
+
+function getSelectedJobType() {
+    const selectedType = (els.jobType?.value || "").trim();
+    return allowedJobTypes.includes(selectedType) ? selectedType : null;
 }
 
 async function refreshJobStatus(jobId) {

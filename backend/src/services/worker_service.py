@@ -1,13 +1,16 @@
 import json
 import logging
 import time
+from io import BytesIO
 from datetime import datetime, timezone
 
 import azure.functions as func
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
+from PIL import Image
 
 from src.shared.blob_utils import read_blob_bytes, upload_output_file
 from src.shared.cosmos_utils import get_cosmos_container
+from src.shared.job_types import is_valid_job_type
 from src.shared.signalr_utils import (
     send_job_event,
     build_status_event,
@@ -68,6 +71,61 @@ def _build_error_payload(code: str, message: str, stage: str) -> dict:
         "message": message,
         "stage": stage,
     }
+
+
+def _remove_background(image_bytes: bytes) -> tuple[bytes, str, str]:
+    with Image.open(BytesIO(image_bytes)) as image:
+        rgba = image.convert("RGBA")
+        pixels = rgba.load()
+        width, height = rgba.size
+
+        threshold = 245
+        for y in range(height):
+            for x in range(width):
+                r, g, b, a = pixels[x, y]
+                if r >= threshold and g >= threshold and b >= threshold:
+                    pixels[x, y] = (r, g, b, 0)
+                else:
+                    pixels[x, y] = (r, g, b, a)
+
+        output_stream = BytesIO()
+        rgba.save(output_stream, format="PNG")
+        return output_stream.getvalue(), ".png", "image/png"
+
+
+def _upscale_image(image_bytes: bytes, scale_factor: int = 2) -> tuple[bytes, str | None, str]:
+    with Image.open(BytesIO(image_bytes)) as image:
+        width, height = image.size
+        resized = image.resize((width * scale_factor, height * scale_factor), Image.Resampling.LANCZOS)
+        target_format = image.format or "PNG"
+
+        output_stream = BytesIO()
+        resized.save(output_stream, format=target_format)
+        content_type = Image.MIME.get(target_format.upper(), "image/png")
+        return output_stream.getvalue(), None, content_type
+
+
+def _build_output_filename(input_blob_name: str, output_extension: str | None) -> str:
+    original_name = input_blob_name.rsplit("/", 1)[-1] or "output.bin"
+
+    if not output_extension:
+        return original_name
+
+    if "." in original_name:
+        base = original_name.rsplit(".", 1)[0]
+    else:
+        base = original_name
+
+    return f"{base}{output_extension}"
+
+
+def _process_image(job_type: str, image_bytes: bytes) -> tuple[bytes, str | None, str]:
+    if job_type == "background_removal":
+        return _remove_background(image_bytes)
+    if job_type == "image_upscale":
+        return _upscale_image(image_bytes)
+
+    raise ValueError(f"Unsupported job type: {job_type}")
 
 
 def process_job_message(msg: func.ServiceBusMessage) -> None:
@@ -192,7 +250,17 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
             container_name=input_container,
             blob_name=input_blob_name,
         )
-        output_file_name = input_blob_name.rsplit("/", 1)[-1] or "output.bin"
+        job_type = job_doc.get("type")
+        if not is_valid_job_type(job_type):
+            raise RuntimeError(f"Invalid job type for processing: {job_type}")
+
+        send_job_event(
+            user_id=str(pk),
+            event=build_log_event(job_id, f"Applying transformation: {job_type}"),
+        )
+
+        processed_bytes, output_extension, content_type = _process_image(job_type, image_bytes)
+        output_file_name = _build_output_filename(input_blob_name, output_extension)
 
         # =========================
         # UPLOAD OUTPUT
@@ -208,7 +276,8 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
             pk=pk,
             job_id=job_id,
             filename=output_file_name,
-            content=image_bytes,
+            content=processed_bytes,
+            content_type=content_type,
         )
 
         # =========================
