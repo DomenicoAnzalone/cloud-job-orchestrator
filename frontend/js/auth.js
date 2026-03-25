@@ -48,13 +48,19 @@ async function getAccessToken() {
 async function apiFetch(url, options = {}) {
   const accessToken = await getAccessToken();
 
+  const headers = {
+    ...options.headers,
+    Authorization: `Bearer ${accessToken}`,
+  };
+
+  // setta JSON solo se NON è FormData
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+
   return fetch(url, {
     ...options,
-    headers: {
-      ...options.headers,
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json"
-    }
+    headers
   });
 }
 

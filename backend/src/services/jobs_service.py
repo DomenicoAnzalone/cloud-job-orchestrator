@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 import azure.functions as func
@@ -7,7 +8,7 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError, CosmosHttpRespo
 
 from src.shared.cosmos_utils import get_cosmos_container
 from src.shared.servicebus_utils import enqueue_job
-from src.shared.blob_utils import generate_blob_read_sas_url
+from src.shared.blob_utils import generate_blob_read_sas_url, upload_input_file
 from src.shared.auth_utils import get_user_from_request
 
 def utc_now_iso() -> str:
@@ -25,16 +26,8 @@ def create_job(req: func.HttpRequest) -> func.HttpResponse:
 
     correlation_id = req.headers.get("x-correlation-id") or str(uuid.uuid4())
 
-    try:
-        payload = req.get_json() or {}
-    except ValueError:
-        return func.HttpResponse(
-            json.dumps({"error": "Invalid JSON body"}),
-            status_code=400,
-            mimetype="application/json",
-        )
-
-    # TO-DO: validare payload
+    logging.info("FORM KEYS: %s", list(req.form.keys()))
+    logging.info("FILES KEYS: %s", list(req.files.keys()))
 
     # check authoritzation and get user by token
     try:
@@ -43,12 +36,48 @@ def create_job(req: func.HttpRequest) -> func.HttpResponse:
         logging.warning("Unauthorized create job request. corr=%s", correlation_id)
         return _unauthorized_response(correlation_id)
     pk = user["userId"]
-    job_type = payload.get("type") or "demo"
+    job_type = req.form.get("type")
+    image = req.files.get("image")
 
-    # TO-DO: validare job_type
+    allowed_types = {"background_removal", "image_upscale"}
+    logging.info("POST /jobs received request pk=%s type=%s corr=%s", pk, job_type, correlation_id)
+    if job_type not in allowed_types:
+        return func.HttpResponse(
+            json.dumps({"error": "Invalid job type."}),
+            status_code=400,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
+
+    if image is None:
+        return func.HttpResponse(
+            json.dumps({"error": "Missing image file."}),
+            status_code=400,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
 
     job_id = str(uuid.uuid4())
     now = utc_now_iso()
+    image_name = os.path.basename(image.filename or "input.bin")
+    image_bytes = image.stream.read()
+
+    try:
+        input_ref = upload_input_file(
+            pk=pk,
+            job_id=job_id,
+            filename=image_name,
+            content=image_bytes,
+            content_type=image.content_type,
+        )
+    except Exception:
+        logging.exception("Blob input upload failed jobId=%s corr=%s", job_id, correlation_id)
+        return func.HttpResponse(
+            json.dumps({"error": "Failed to upload input image"}),
+            status_code=500,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
 
     job_doc = {
         "id": job_id,
@@ -60,8 +89,7 @@ def create_job(req: func.HttpRequest) -> func.HttpResponse:
         "createdAt": now,
         "updatedAt": now,
         "correlationId": correlation_id,
-        # salva parametri del job, (da vedere in futuro)
-        "parameters": payload.get("parameters") or {},
+        "inputRef": input_ref,
     }
 
     logging.info("POST /jobs start jobId=%s pk=%s type=%s corr=%s", job_id, pk, job_type, correlation_id)

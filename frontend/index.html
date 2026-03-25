@@ -46,25 +46,28 @@
         polls status, and retrieves the download link when the output is ready.
       </p>
 
-      <div class="row">
-        <div class="field">
-          <label for="apiBase">API base URL</label>
-          <input id="apiBase" type="text" value="http://localhost:7071/api" />
+      <div class="stat submission-panel">
+        <div class="row">
+          <div class="field">
+            <label for="jobType">Job Type</label>
+            <select id="jobType">
+              <option value="background_removal">background_removal</option>
+              <option value="image_upscale">image_upscale</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="imageFile">Image</label>
+            <input id="imageFile" type="file" accept="image/*" />
+          </div>
         </div>
 
-        <div class="field">
-          <label>User ID (from token)</label>
-          <div id="pkDisplay" class="readonly-field">-</div>
+        <div class="actions">
+          <button id="createBtn">Create Job</button>
         </div>
-      </div>
-
-      <div class="checkbox-row">
-        <input id="forceFail" type="checkbox" />
-        <label for="forceFail" style="margin: 0;">Force failure demo (parameters.fail=true)</label>
       </div>
 
       <div class="actions">
-        <button id="createBtn">Create Job</button>
         <button id="refreshBtn" class="secondary" disabled>Refresh Status</button>
         <button id="logoutBtn" class="secondary">Logout</button>
       </div>
@@ -73,7 +76,19 @@
 
       <template id="jobCardTemplate">
         <div class="card job-card">
-          <h3>Job <span class="job-id"></span></h3>
+          <h3>Job id: <span class="job-id"></span></h3>
+
+          <div class="grid">
+            <div class="stat">
+              <div class="label">Filename</div>
+              <div class="value filename"></div>
+            </div>
+
+            <div class="stat">
+              <div class="label">Job Type</div>
+              <div class="value job-type"></div>
+            </div>
+          </div>
 
           <div class="grid">
             <div class="stat">

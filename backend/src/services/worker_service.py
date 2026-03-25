@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import azure.functions as func
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
-from src.shared.blob_utils import upload_text_output
+from src.shared.blob_utils import read_blob_bytes, upload_output_file
 from src.shared.cosmos_utils import get_cosmos_container
 from src.shared.signalr_utils import (
     send_job_event,
@@ -56,18 +56,6 @@ def _publish_job_update(job_doc: dict, correlation_id: str | None) -> None:
             job_doc.get("pk"),
             correlation_id,
         )
-
-def _build_dummy_result(job_doc: dict) -> str:
-    return (
-        "Cloud Job Orchestrator - dummy worker output\n"
-        f"jobId: {job_doc['id']}\n"
-        f"pk: {job_doc.get('pk')}\n"
-        f"type: {job_doc.get('type')}\n"
-        f"status: done\n"
-        f"attempts: {job_doc.get('attempts')}\n"
-        f"generatedAt: {utc_now_iso()}\n"
-    )
-
 
 def _is_forced_failure(job_doc: dict) -> bool:
     parameters = job_doc.get("parameters") or {}
@@ -193,7 +181,18 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
             event=build_log_event(job_id, "Building output result")
         )
 
-        result_text = _build_dummy_result(job_doc)
+        input_ref = job_doc.get("inputRef") or {}
+        input_container = input_ref.get("container")
+        input_blob_name = input_ref.get("blobName")
+
+        if not input_container or not input_blob_name:
+            raise RuntimeError("Missing inputRef for job output build")
+
+        image_bytes = read_blob_bytes(
+            container_name=input_container,
+            blob_name=input_blob_name,
+        )
+        output_file_name = input_blob_name.rsplit("/", 1)[-1] or "output.bin"
 
         # =========================
         # UPLOAD OUTPUT
@@ -205,10 +204,11 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
             event=build_log_event(job_id, "Uploading output to Blob Storage")
         )
 
-        output_ref = upload_text_output(
+        output_ref = upload_output_file(
             pk=pk,
             job_id=job_id,
-            content=result_text,
+            filename=output_file_name,
+            content=image_bytes,
         )
 
         # =========================

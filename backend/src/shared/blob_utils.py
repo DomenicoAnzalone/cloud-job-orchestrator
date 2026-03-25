@@ -63,6 +63,54 @@ def upload_text_output(pk: str, job_id: str, content: str) -> dict:
     }
 
 
+def upload_input_file(pk: str, job_id: str, filename: str, content: bytes, content_type: str | None = None) -> dict:
+    service = get_blob_service_client()
+    container_name = "input"
+    blob_name = f"{pk}/{job_id}/{filename}"
+
+    container_client = service.get_container_client(container_name)
+
+    try:
+        container_client.create_container()
+    except ResourceExistsError:
+        pass
+
+    blob_client = container_client.get_blob_client(blob_name)
+    blob_client.upload_blob(content, overwrite=True, content_type=content_type)
+
+    return {
+        "container": container_name,
+        "blobName": blob_name,
+    }
+
+
+def read_blob_bytes(container_name: str, blob_name: str) -> bytes:
+    service = get_blob_service_client()
+    blob_client = service.get_blob_client(container=container_name, blob=blob_name)
+    return blob_client.download_blob().readall()
+
+
+def upload_output_file(pk: str, job_id: str, filename: str, content: bytes, content_type: str | None = None) -> dict:
+    service = get_blob_service_client()
+    container_name = os.environ.get("BLOB_OUTPUT_CONTAINER", "output")
+    blob_name = f"{pk}/{job_id}/{filename}"
+
+    container_client = service.get_container_client(container_name)
+
+    try:
+        container_client.create_container()
+    except ResourceExistsError:
+        pass
+
+    blob_client = container_client.get_blob_client(blob_name)
+    blob_client.upload_blob(content, overwrite=True, content_type=content_type)
+
+    return {
+        "container": container_name,
+        "blobName": blob_name,
+    }
+
+
 def generate_blob_read_sas_url(container_name: str, blob_name: str) -> dict:
     service = get_blob_identity_service_client()
 

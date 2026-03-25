@@ -63,13 +63,19 @@ label {
     color: var(--muted);
 }
 
-input[type="text"] {
+input[type="text"],
+input[type="file"],
+select {
     width: 100%;
     padding: 10px 12px;
     border-radius: 10px;
     border: 1px solid var(--border);
     background: #0b1220;
     color: var(--text);
+}
+
+.submission-panel {
+    margin-top: 12px;
 }
 
 .checkbox-row {

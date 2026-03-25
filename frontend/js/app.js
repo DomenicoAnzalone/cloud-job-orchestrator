@@ -1,6 +1,6 @@
 const els = {
-    apiBase: document.getElementById("apiBase"),
-    forceFail: document.getElementById("forceFail"),
+    jobType: document.getElementById("jobType"),
+    imageFile: document.getElementById("imageFile"),
     createBtn: document.getElementById("createBtn"),
     refreshBtn: document.getElementById("refreshBtn"),
     loginBtn: document.getElementById("loginBtn"),
@@ -13,6 +13,7 @@ const els = {
 let currentUserId = null;
 let pollHandle = null;
 let signalrConnection = null;
+let apiBaseUrl = "http://localhost:7071/api";
 
 let pollingInProgress = false;
 let realtimeConnected = false;
@@ -21,6 +22,7 @@ const jobsMap = new Map(); // jobId -> { data + domRefs }
 
 window.onload = async () => {
     log("Application loading...");
+    await loadApiBaseFromSettings();
 
     const isLogged = await isUserLoggedIn();
 
@@ -41,14 +43,8 @@ window.onload = async () => {
 
         currentUserId = getUserIdFromToken();
 
-        if (!currentUserId) {
-            console.warn("User id not available from token.");
-            document.getElementById("pkDisplay").textContent = "-";
-        }
-
         const displayName = account?.name ?? account?.username ?? "utente";
         document.getElementById("subtitle").textContent = `Bentornato: ${displayName}`;
-            document.getElementById("pkDisplay").textContent = currentUserId;
     }
 };
 
@@ -61,13 +57,6 @@ async function authentication() {
     try {
         await login();
         currentUserId = getUserIdFromToken();
-
-        if (!currentUserId) {
-            console.warn("User id not available from token.");
-            document.getElementById("pkDisplay").textContent = "-";
-        }
-        
-        document.getElementById("pkDisplay").textContent = currentUserId;
         loginSucceeded = true;
     } catch (e) {
         console.error("Login failed:", e);
@@ -329,7 +318,36 @@ function startPolling() {
 }
 
 function getApiBase() {
-    return els.apiBase.value.trim().replace(/\/+$/, "");
+    return apiBaseUrl.trim().replace(/\/+$/, "");
+}
+
+async function loadApiBaseFromSettings() {
+    const candidates = [
+        "/local.settings.json",
+        "/backend/local.settings.json",
+        "../backend/local.settings.json",
+    ];
+
+    for (const path of candidates) {
+        try {
+            const res = await fetch(path, { cache: "no-store" });
+            if (!res.ok) continue;
+            const data = await res.json();
+            const value =
+                data?.Values?.FRONTEND_API_BASE_URL ||
+                data?.Values?.API_BASE_URL ||
+                data?.Values?.CJO_API_BASE_URL;
+            if (value) {
+                apiBaseUrl = value;
+                log(`API base loaded from ${path}`);
+                return;
+            }
+        } catch (_) {
+            // fallback
+        }
+    }
+
+    log("Using default API base URL.");
 }
 
 async function parseResponse(res) {
@@ -337,14 +355,14 @@ async function parseResponse(res) {
     let data = {};
 
     try {
-    data = text ? JSON.parse(text) : {};
+        data = text ? JSON.parse(text) : {};
     } catch {
-    data = { raw: text };
+        data = { raw: text };
     }
 
     if (!res.ok) {
-    const msg = data.error || data.message || data.raw || `${res.status} ${res.statusText}`;
-    throw new Error(msg);
+        const msg = data.error || data.message || data.raw || `${res.status} ${res.statusText}`;
+        throw new Error(msg);
     }
 
     return data;
@@ -353,18 +371,15 @@ async function parseResponse(res) {
 async function createJob() {
     resetView();
 
-    const payload = {
-        pk: currentUserId,
-        type: "csv_cleaning_validation",
-        parameters: {
-            delimiter: ",",
-            trimWhitespace: true,
-        },
-    };
-
-    if (els.forceFail.checked) {
-    payload.parameters.fail = true;
+    const image = els.imageFile.files?.[0];
+    if (!image) {
+        log("Create job failed: please select an image file.");
+        return;
     }
+
+    const formData = new FormData();
+    formData.append("type", els.jobType.value);
+    formData.append("image", image);
 
     log("Creating job...");
 
@@ -377,10 +392,7 @@ async function createJob() {
     try {
     const res = await apiFetch(`${getApiBase()}/jobs`, {
         method: "POST",
-        headers: {
-        "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        body: formData,
     });
 
     const data = await parseResponse(res);
