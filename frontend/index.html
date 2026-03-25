@@ -66,54 +66,35 @@
       <div class="actions">
         <button id="createBtn">Create Job</button>
         <button id="refreshBtn" class="secondary" disabled>Refresh Status</button>
-        <button id="downloadBtn" class="secondary" disabled>Download Output</button>
         <button id="logoutBtn" class="secondary">Logout</button>
       </div>
-    </div>
 
-    <div class="card">
-      <h2>Job state</h2>
-      <div class="grid">
-        <div class="stat">
-          <div class="label">Job ID</div>
-          <div class="value" id="jobIdValue">-</div>
+      <div id="jobsContainer" class="container"></div>
+
+      <template id="jobCardTemplate">
+        <div class="card job-card">
+          <h3>Job <span class="job-id"></span></h3>
+
+          <div class="grid">
+            <div class="stat">
+              <div class="label">Status</div>
+              <div class="value status"></div>
+            </div>
+
+            <div class="stat">
+              <div class="label">Progress</div>
+              <div class="value progress"></div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="downloadBtn" style="margin-bottom: 2%;"disabled>Download Output</button>
+          </div>
+
+          <pre class="logBox"></pre>
         </div>
+      </template>
 
-        <div class="stat">
-          <div class="label">Status</div>
-          <div class="value"><span id="statusValue" class="status-pill">idle</span></div>
-        </div>
-
-        <div class="stat">
-          <div class="label">Progress</div>
-          <div class="value" id="progressValue">-</div>
-        </div>
-
-        <div class="stat">
-          <div class="label">Attempts</div>
-          <div class="value" id="attemptsValue">-</div>
-        </div>
-
-        <div class="stat">
-          <div class="label">Realtime</div>
-          <div class="value" id="realtimeValue">disconnected</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Error</h2>
-      <pre id="errorBox" class="muted">No error</pre>
-    </div>
-
-    <div class="card">
-      <h2>Download link info</h2>
-      <pre id="downloadInfo" class="muted">No output link requested yet</pre>
-    </div>
-
-    <div class="card">
-      <h2>Event log</h2>
-      <pre id="logBox">UI ready</pre>
     </div>
   </div>
 </body>

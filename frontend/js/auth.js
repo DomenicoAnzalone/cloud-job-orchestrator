@@ -14,7 +14,7 @@ async function login() {
   });
 
   sessionStorage.setItem("id_token", loginResponse.idToken);
-  consoleLog("Login successful. Authentication token stored.");
+  log("Login successful. Authentication token stored.");
   msalInstance.setActiveAccount(loginResponse.account);
 }
 
@@ -23,7 +23,7 @@ async function logout() {
   msalInstance.setActiveAccount(null);
   sessionStorage.removeItem("id_token");
 
-  consoleLog("User logged out.");
+  log("User logged out.");
 
   // reload app
   window.location.reload();
@@ -45,7 +45,6 @@ async function getAccessToken() {
   return response.accessToken;
 }
 
-// Wrapper per fetch che include automaticamente il token di accesso
 async function apiFetch(url, options = {}) {
   const accessToken = await getAccessToken();
 
@@ -60,12 +59,25 @@ async function apiFetch(url, options = {}) {
 }
 
 function getUserIdFromToken() {
-  const token = getToken();
+  try {
+    const token = getToken();
+    if (!token) return null;
 
-  if (!token) return null;
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
 
-  const payload = JSON.parse(atob(token.split(".")[1]));
-  return payload.oid;
+    const payloadBase64Url = parts[1];
+    const payloadBase64 = payloadBase64Url
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(payloadBase64Url.length / 4) * 4, "=");
+
+    const payload = JSON.parse(atob(payloadBase64));
+    return payload.oid ?? payload.sub ?? null;
+  } catch (error) {
+    console.warn("Unable to decode user id from token:", error);
+    return null;
+  }
 }
 
 function getToken() {

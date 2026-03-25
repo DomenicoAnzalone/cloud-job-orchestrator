@@ -8,7 +8,14 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from src.shared.blob_utils import upload_text_output
 from src.shared.cosmos_utils import get_cosmos_container
-from src.shared.signalr_utils import send_signalr_message_to_user
+from src.shared.signalr_utils import (
+    send_job_event,
+    build_status_event,
+    build_progress_event,
+    build_completed_event,
+    build_failed_event,
+    build_log_event,
+)
 
 TERMINAL_SKIP_STATUSES = {"done", "canceled"}
 
@@ -19,26 +26,29 @@ def _replace_job(container, job_doc: dict) -> None:
     job_doc["updatedAt"] = utc_now_iso()
     container.replace_item(item=job_doc["id"], body=job_doc)
 
-def _build_realtime_job_payload(job_doc: dict) -> dict:
-    return {
-        "jobId": job_doc.get("id"),
-        "pk": job_doc.get("pk"),
-        "status": job_doc.get("status"),
-        "progress": job_doc.get("progress"),
-        "attempts": job_doc.get("attempts"),
-        "error": job_doc.get("error"),
-        "updatedAt": job_doc.get("updatedAt"),
-    }
-
-
 def _publish_job_update(job_doc: dict, correlation_id: str | None) -> None:
+
+    # Legacy adapter → converte job_doc in eventi standard.
     try:
         user_id = str(job_doc.get("pk"))
-        send_signalr_message_to_user(
-            user_id=user_id,
-            target="jobUpdated",
-            arguments=[_build_realtime_job_payload(job_doc)],
-        )
+        job_id = job_doc.get("id")
+        status = job_doc.get("status")
+        progress = job_doc.get("progress")
+        error = job_doc.get("error")
+
+        # STATUS event
+        send_job_event(user_id, build_status_event(job_id, status))
+
+        # PROGRESS event
+        if progress is not None:
+            send_job_event(user_id, build_progress_event(job_id, progress, status))
+
+        # TERMINAL events
+        if status == "done":
+            send_job_event(user_id, build_completed_event(job_id))
+        elif status == "failed":
+            send_job_event(user_id, build_failed_event(job_id, error))
+
     except Exception:
         logging.exception(
             "SignalR publish failed for jobId=%s pk=%s corr=%s",
@@ -127,43 +137,95 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
         return
 
     try:
+        # =========================
+        # START PROCESSING
+        # =========================
         stage = "mark-processing"
         job_doc["status"] = "processing"
         job_doc["progress"] = 0.1
         job_doc["attempts"] = int(job_doc.get("attempts", 0)) + 1
         job_doc.pop("error", None)
         job_doc.pop("outputRef", None)
+
+        send_job_event(
+            user_id=str(pk),
+            event=build_log_event(job_id, "Job started processing")
+        )
+
         _replace_job(container, job_doc)
         _publish_job_update(job_doc, correlation_id)
 
+        # =========================
+        # FORCED FAILURE (DEMO)
+        # =========================
         if _is_forced_failure(job_doc):
             stage = "forced-demo-failure"
+
+            send_job_event(
+                user_id=str(pk),
+                event=build_log_event(job_id, "Forced failure triggered (demo mode)")
+            )
+
             time.sleep(5)
             raise RuntimeError("Forced demo failure (parameters.fail=true)")
 
+        # =========================
+        # SIMULATED WORK
+        # =========================
         stage = "simulate-work"
+
         for progress in (0.4, 0.7, 0.9):
             time.sleep(10)
+
             job_doc["status"] = "processing"
             job_doc["progress"] = progress
+
             _replace_job(container, job_doc)
             _publish_job_update(job_doc, correlation_id)
 
+        # =========================
+        # BUILD OUTPUT
+        # =========================
         stage = "build-output"
+
+        send_job_event(
+            user_id=str(pk),
+            event=build_log_event(job_id, "Building output result")
+        )
+
         result_text = _build_dummy_result(job_doc)
 
+        # =========================
+        # UPLOAD OUTPUT
+        # =========================
         stage = "upload-output"
+
+        send_job_event(
+            user_id=str(pk),
+            event=build_log_event(job_id, "Uploading output to Blob Storage")
+        )
+
         output_ref = upload_text_output(
             pk=pk,
             job_id=job_id,
             content=result_text,
         )
 
+        # =========================
+        # FINALIZE
+        # =========================
         stage = "finalize"
         time.sleep(10)
+
         job_doc["status"] = "done"
         job_doc["progress"] = 1.0
         job_doc["outputRef"] = output_ref
+
+        send_job_event(
+            user_id=str(pk),
+            event=build_log_event(job_id, "Job completed successfully")
+        )
+
         _replace_job(container, job_doc)
         _publish_job_update(job_doc, correlation_id)
 
@@ -184,6 +246,15 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
             stage,
         )
 
+        # LOG REALTIME ERROR
+        send_job_event(
+            user_id=str(pk),
+            event=build_log_event(
+                job_id,
+                f"Job failed at stage '{stage}': {str(exc)}"
+            )
+        )
+
         if job_doc is not None:
             try:
                 error_code = (
@@ -198,8 +269,10 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
                     message=str(exc),
                     stage=stage,
                 )
+
                 _replace_job(container, job_doc)
                 _publish_job_update(job_doc, correlation_id)
+
             except Exception:
                 logging.exception(
                     "Failed to persist failed status for jobId=%s pk=%s corr=%s",

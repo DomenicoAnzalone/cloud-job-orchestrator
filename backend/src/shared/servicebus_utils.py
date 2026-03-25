@@ -1,9 +1,9 @@
 import os
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from azure.servicebus import ServiceBusClient, ServiceBusMessage
 
-QUEUE_NAME = "q-jobs"
+QUEUE_NAME = os.environ.get("SERVICEBUS_JOBS_QUEUE", "q-jobs")
 
 def enqueue_job(message_body: Dict[str, Any], job_id: str, correlation_id: str) -> None:
     conn_str = os.environ["SERVICEBUS_CONNECTION"]
