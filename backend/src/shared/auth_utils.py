@@ -1,6 +1,5 @@
 import jwt
 import requests
-import logging
 from functools import lru_cache
 
 TENANT_ID = "1ff1ab6f-5116-43af-a48b-d8da1301df40"
@@ -11,7 +10,8 @@ JWKS_URL = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/v2.0/keys"
 
 @lru_cache()
 def get_jwks():
-    response = requests.get(JWKS_URL)
+    response = requests.get(JWKS_URL, timeout=10)
+    response.raise_for_status()
     return response.json()
 
 
@@ -25,7 +25,7 @@ def get_public_key(token):
         if key["kid"] == kid:
             return jwt.algorithms.RSAAlgorithm.from_jwk(key)
 
-    raise Exception("Public key not found")
+    raise ValueError("Public key not found")
 
 
 def validate_token(token):
@@ -49,7 +49,7 @@ def validate_token(token):
     ]
 
     if iss not in VALID_ISSUERS:
-        raise Exception(f"Invalid issuer: {iss}")
+        raise ValueError(f"Invalid issuer: {iss}")
 
     return decoded
 
@@ -58,13 +58,18 @@ def get_user_from_request(req):
     auth_header = req.headers.get("Authorization", "")
 
     if not auth_header.startswith("Bearer "):
-        raise Exception("Missing or invalid Authorization header")
+        raise ValueError("Missing or invalid Authorization header")
 
-    token = auth_header.split(" ")[1]
+    token = auth_header.split(" ", 1)[1]
 
     decoded = validate_token(token)
 
+    user_id = decoded.get("oid")
+    tenant_id = decoded.get("tid")
+    if not user_id or not tenant_id:
+        raise ValueError("Token missing required claims (oid/tid)")
+
     return {
-        "userId": decoded.get("oid"),
-        "tenantId": decoded.get("tid"),
+        "userId": user_id,
+        "tenantId": tenant_id,
     }

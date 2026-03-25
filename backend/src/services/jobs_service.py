@@ -13,6 +13,14 @@ from src.shared.auth_utils import get_user_from_request
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
+def _unauthorized_response(correlation_id: str) -> func.HttpResponse:
+    return func.HttpResponse(
+        json.dumps({"error": "Unauthorized"}),
+        status_code=401,
+        mimetype="application/json",
+        headers={"x-correlation-id": correlation_id},
+    )
+
 def create_job(req: func.HttpRequest) -> func.HttpResponse:
 
     correlation_id = req.headers.get("x-correlation-id") or str(uuid.uuid4())
@@ -29,7 +37,11 @@ def create_job(req: func.HttpRequest) -> func.HttpResponse:
     # TO-DO: validare payload
 
     # check authoritzation and get user by token
-    user = get_user_from_request(req)
+    try:
+        user = get_user_from_request(req)
+    except Exception:
+        logging.warning("Unauthorized create job request. corr=%s", correlation_id)
+        return _unauthorized_response(correlation_id)
     pk = user["userId"]
     job_type = payload.get("type") or "demo"
 
@@ -58,12 +70,13 @@ def create_job(req: func.HttpRequest) -> func.HttpResponse:
     try:
         container = get_cosmos_container()
         container.create_item(body=job_doc)
-    except Exception as e:
+    except Exception:
         logging.exception("Cosmos create_item failed jobId=%s corr=%s", job_id, correlation_id)
         return func.HttpResponse(
-            json.dumps({"error": "Failed to create job in Cosmos", "details": str(e)}),
+            json.dumps({"error": "Failed to create job in Cosmos"}),
             status_code=500,
             mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
         )
 
     # 2) enqueue in Service Bus (claim-check style: mando solo identificativi)
@@ -71,12 +84,13 @@ def create_job(req: func.HttpRequest) -> func.HttpResponse:
 
     try:
         enqueue_job(sb_body, job_id=job_id, correlation_id=correlation_id)
-    except Exception as e:
+    except Exception:
         logging.exception("Service Bus enqueue failed jobId=%s corr=%s", job_id, correlation_id)
         return func.HttpResponse(
-            json.dumps({"error": "Failed to enqueue job to Service Bus", "details": str(e), "jobId": job_id}),
+            json.dumps({"error": "Failed to enqueue job to Service Bus", "jobId": job_id}),
             status_code=500,
             mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
         )
 
     # 3) 202 Accepted + statusUrl (endpoint /jobs/{id} verrà fatto dopo)
@@ -86,6 +100,7 @@ def create_job(req: func.HttpRequest) -> func.HttpResponse:
         json.dumps({"jobId": job_id, "statusUrl": status_url}),
         status_code=202,
         mimetype="application/json",
+        headers={"x-correlation-id": correlation_id},
     )
 
 def get_job_status(req: func.HttpRequest) -> func.HttpResponse:
@@ -107,7 +122,11 @@ def get_job_status(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     # check authoritzation and get user by token
-    user = get_user_from_request(req)
+    try:
+        user = get_user_from_request(req)
+    except Exception:
+        logging.warning("Unauthorized get status request. jobId=%s corr=%s", job_id, correlation_id)
+        return _unauthorized_response(correlation_id)
     pk = user["userId"]
 
     # Check formato corretto
@@ -184,7 +203,11 @@ def get_job_output_link(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     # check authoritzation and get user by token
-    user = get_user_from_request(req)
+    try:
+        user = get_user_from_request(req)
+    except Exception:
+        logging.warning("Unauthorized get output link request. jobId=%s corr=%s", job_id, correlation_id)
+        return _unauthorized_response(correlation_id)
     pk = user["userId"]
 
     try:
