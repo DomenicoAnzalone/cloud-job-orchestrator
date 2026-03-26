@@ -247,7 +247,14 @@ function handleJobEvent(event) {
                         throw new Error("Missing download URL");
                     }
 
-                    window.open(data.downloadUrl, "_blank", "noopener,noreferrer");
+                    const link = document.createElement("a");
+                    link.href = data.downloadUrl;
+                    link.download = job.filename || `${jobId}.png`;
+                    link.rel = "noopener noreferrer";
+                    link.style.display = "none";
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
 
                 } catch (err) {
                     log(`Download failed: ${err.message}`);

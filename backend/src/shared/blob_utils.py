@@ -123,6 +123,8 @@ def generate_blob_read_sas_url(container_name: str, blob_name: str) -> dict:
         key_expiry_time=expires_on,
     )
 
+    download_name = blob_name.rsplit("/", 1)[-1] or "output.bin"
+
     sas_token = generate_blob_sas(
         account_name=_get_blob_account_name(),
         container_name=container_name,
@@ -132,6 +134,7 @@ def generate_blob_read_sas_url(container_name: str, blob_name: str) -> dict:
         start=starts_on,
         expiry=expires_on,
         protocol="https",
+        content_disposition=f'attachment; filename="{download_name}"',
     )
 
     blob_client = service.get_blob_client(container=container_name, blob=blob_name)
