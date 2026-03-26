@@ -215,19 +215,15 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
             time.sleep(5)
             raise RuntimeError("Forced demo failure (parameters.fail=true)")
 
-        # =========================
-        # SIMULATED WORK
-        # =========================
-        stage = "simulate-work"
 
-        for progress in (0.4, 0.7, 0.9):
-            time.sleep(10)
+        # Sleeping to allow the demo to display a “processing” status and progress before proceeding to the next stage.
+        time.sleep(10)
 
-            job_doc["status"] = "processing"
-            job_doc["progress"] = progress
+        job_doc["status"] = "processing"
+        job_doc["progress"] = 0.4
 
-            _replace_job(container, job_doc)
-            _publish_job_update(job_doc, correlation_id)
+        _replace_job(container, job_doc)
+        _publish_job_update(job_doc, correlation_id)
 
         # =========================
         # BUILD OUTPUT
@@ -262,6 +258,15 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
         processed_bytes, output_extension, content_type = _process_image(job_type, image_bytes)
         output_file_name = _build_output_filename(input_blob_name, output_extension)
 
+        # Sleeping to allow the demo to display a “processing” status and progress before proceeding to the next stage.
+        time.sleep(10)
+
+        job_doc["status"] = "processing"
+        job_doc["progress"] = 0.7
+
+        _replace_job(container, job_doc)
+        _publish_job_update(job_doc, correlation_id)
+
         # =========================
         # UPLOAD OUTPUT
         # =========================
@@ -280,11 +285,19 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
             content_type=content_type,
         )
 
+        # Sleeping to allow the demo to display a “processing” status and progress before proceeding to the next stage.
+        time.sleep(10)
+
+        job_doc["status"] = "processing"
+        job_doc["progress"] = 0.7
+
+        _replace_job(container, job_doc)
+        _publish_job_update(job_doc, correlation_id)
+
         # =========================
         # FINALIZE
         # =========================
         stage = "finalize"
-        time.sleep(10)
 
         job_doc["status"] = "done"
         job_doc["progress"] = 1.0
