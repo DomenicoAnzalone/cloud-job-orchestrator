@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 import azure.functions as func
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 from PIL import Image
+from collections import deque
+from statistics import median
 
 from src.shared.blob_utils import read_blob_bytes, upload_output_file
 from src.shared.cosmos_utils import get_cosmos_container
@@ -76,17 +78,94 @@ def _build_error_payload(code: str, message: str, stage: str) -> dict:
 def _remove_background(image_bytes: bytes) -> tuple[bytes, str, str]:
     with Image.open(BytesIO(image_bytes)) as image:
         rgba = image.convert("RGBA")
-        pixels = rgba.load()
         width, height = rgba.size
+        pixels = rgba.load()
 
-        threshold = 245
+        if width == 0 or height == 0:
+            output_stream = BytesIO()
+            rgba.save(output_stream, format="PNG")
+            return output_stream.getvalue(), ".png", "image/png"
+
+        # Stima del colore di sfondo usando campioni presi dai bordi.
+        # Questo è più robusto di una soglia fissa su tutto l'immagine.
+        border_samples: list[tuple[int, int, int]] = []
+
+        step_x = max(1, width // 30)
+        step_y = max(1, height // 30)
+
+        for x in range(0, width, step_x):
+            border_samples.append(pixels[x, 0][:3])
+            border_samples.append(pixels[x, height - 1][:3])
+
+        for y in range(0, height, step_y):
+            border_samples.append(pixels[0, y][:3])
+            border_samples.append(pixels[width - 1, y][:3])
+
+        if not border_samples:
+            border_samples = [pixels[0, 0][:3]]
+
+        bg_r = int(median([c[0] for c in border_samples]))
+        bg_g = int(median([c[1] for c in border_samples]))
+        bg_b = int(median([c[2] for c in border_samples]))
+
+        # Tolleranza: più alta = rimuove più sfondo, ma aumenta il rischio di toccare il soggetto.
+        tolerance = 38
+        tolerance_sq = tolerance * tolerance
+
+        def is_background_pixel(x: int, y: int) -> bool:
+            r, g, b, _ = pixels[x, y]
+            dr = r - bg_r
+            dg = g - bg_g
+            db = b - bg_b
+            return (dr * dr + dg * dg + db * db) <= tolerance_sq
+
+        # Flood fill dai bordi: rimuove solo lo sfondo connesso ai bordi.
+        visited = bytearray(width * height)
+        remove = bytearray(width * height)
+        queue = deque()
+
+        def push(x: int, y: int) -> None:
+            idx = y * width + x
+            if not visited[idx]:
+                visited[idx] = 1
+                queue.append((x, y))
+
+        for x in range(width):
+            push(x, 0)
+            push(x, height - 1)
+
         for y in range(height):
+            push(0, y)
+            push(width - 1, y)
+
+        while queue:
+            x, y = queue.popleft()
+            idx = y * width + x
+
+            if remove[idx]:
+                continue
+
+            if not is_background_pixel(x, y):
+                continue
+
+            remove[idx] = 1
+
+            if x > 0:
+                push(x - 1, y)
+            if x + 1 < width:
+                push(x + 1, y)
+            if y > 0:
+                push(x, y - 1)
+            if y + 1 < height:
+                push(x, y + 1)
+
+        # Applica la trasparenza solo ai pixel identificati come sfondo.
+        for y in range(height):
+            row_base = y * width
             for x in range(width):
-                r, g, b, a = pixels[x, y]
-                if r >= threshold and g >= threshold and b >= threshold:
+                if remove[row_base + x]:
+                    r, g, b, _ = pixels[x, y]
                     pixels[x, y] = (r, g, b, 0)
-                else:
-                    pixels[x, y] = (r, g, b, a)
 
         output_stream = BytesIO()
         rgba.save(output_stream, format="PNG")
