@@ -223,7 +223,9 @@ function handleJobEvent(event) {
             job.progress = event.progress ?? job.progress;
 
             job.statusEl.textContent = job.status;
-            job.progressEl.textContent = job.progress;
+            if (job.progressFill) {
+                job.progressFill.style.width = (job.progress * 100) + "%";
+            }
             break;
 
         case "log":
@@ -237,7 +239,9 @@ function handleJobEvent(event) {
             job.status = "done";
             job.progress = 1;
             job.statusEl.textContent = "done";
-            job.progressEl.textContent = job.progress;
+            if (job.progressFill) {
+                job.progressFill.style.width = "100%";
+            }
 
             job.downloadBtn.disabled = false;
 
@@ -291,7 +295,7 @@ function createJobCard(jobId) {
     const card = clone.querySelector(".job-card");
     const jobIdEl = clone.querySelector(".job-id");
     const statusEl = clone.querySelector(".status");
-    const progressEl = clone.querySelector(".progress");
+    const progressFill = clone.querySelector(".progress-fill");
     const filenameEl = clone.querySelector(".filename");
     const jobTypeEl = clone.querySelector(".job-type");
     const logBox = clone.querySelector(".logBox");
@@ -304,7 +308,7 @@ function createJobCard(jobId) {
     return {
         card,
         statusEl,
-        progressEl,
+        progressFill,
         filenameEl,
         jobTypeEl,
         logBox,
