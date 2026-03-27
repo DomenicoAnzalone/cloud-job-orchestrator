@@ -317,7 +317,7 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
 
         send_job_event(
             user_id=str(pk),
-            event=build_log_event(job_id, "Job started processing")
+            event=build_log_event(job_id, "Job started processing, attempt #%d" % job_doc["attempts"])
         )
 
         _replace_job(container, job_doc)

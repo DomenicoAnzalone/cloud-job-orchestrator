@@ -2,6 +2,7 @@ const els = {
     jobType: document.getElementById("jobType"),
     imageFile: document.getElementById("imageFile"),
     createBtn: document.getElementById("createBtn"),
+    forceDemoFail: document.getElementById("forceDemoFail"),
     refreshBtn: document.getElementById("refreshBtn"),
     loginBtn: document.getElementById("loginBtn"),
     logoutBtn: document.getElementById("logoutBtn"),
@@ -412,8 +413,14 @@ async function createJob() {
     const formData = new FormData();
     formData.append("type", selectedJobType);
     formData.append("image", image);
+    if (els.forceDemoFail?.checked) {
+        log("Demo failure mode enabled for this job.");
+        formData.append("fail", "true");
+    }
 
-    log(`Creating job with type=${selectedJobType}...`);
+    log(
+        `Creating job with type=${selectedJobType} forceDemoFail=${els.forceDemoFail?.checked ? "true" : "false"}...`
+    );
 
     els.createBtn.disabled = true;
 

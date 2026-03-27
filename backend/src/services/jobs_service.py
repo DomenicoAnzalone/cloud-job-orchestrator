@@ -50,6 +50,8 @@ def create_job(req: func.HttpRequest) -> func.HttpResponse:
     pk = user["userId"]
     job_type = req.form.get("type")
     image = req.files.get("image")
+    fail_raw = req.form.get("fail")
+    fail = str(fail_raw).lower() == "true"
 
     logging.info("POST /jobs received request pk=%s type=%s corr=%s", pk, job_type, correlation_id)
     if not is_valid_job_type(job_type):
@@ -101,6 +103,9 @@ def create_job(req: func.HttpRequest) -> func.HttpResponse:
         "updatedAt": now,
         "correlationId": correlation_id,
         "inputRef": input_ref,
+        "parameters": {
+            "fail": fail
+        },
     }
 
     logging.info("POST /jobs start jobId=%s pk=%s type=%s corr=%s", job_id, pk, job_type, correlation_id)
