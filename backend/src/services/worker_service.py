@@ -208,6 +208,9 @@ def _process_image(job_type: str, image_bytes: bytes) -> tuple[bytes, str | None
 
 
 def process_job_message(msg: func.ServiceBusMessage) -> None:
+
+    sleep_time = 0.1 
+
     raw_body = msg.get_body().decode("utf-8", errors="replace")
     delivery_count = int(getattr(msg, "delivery_count", 0) or 0)
 
@@ -291,12 +294,12 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
                 event=build_log_event(job_id, "Forced failure triggered (demo mode)")
             )
 
-            time.sleep(5)
+            time.sleep(sleep_time)
             raise RuntimeError("Forced demo failure (parameters.fail=true)")
 
 
         # Sleeping to allow the demo to display a “processing” status and progress before proceeding to the next stage.
-        time.sleep(10)
+        time.sleep(sleep_time)
 
         job_doc["status"] = "processing"
         job_doc["progress"] = 0.4
@@ -338,7 +341,7 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
         output_file_name = _build_output_filename(input_blob_name, output_extension)
 
         # Sleeping to allow the demo to display a “processing” status and progress before proceeding to the next stage.
-        time.sleep(10)
+        time.sleep(sleep_time)
 
         job_doc["status"] = "processing"
         job_doc["progress"] = 0.7
@@ -365,7 +368,7 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
         )
 
         # Sleeping to allow the demo to display a “processing” status and progress before proceeding to the next stage.
-        time.sleep(10)
+        time.sleep(sleep_time)
 
         job_doc["status"] = "processing"
         job_doc["progress"] = 0.7
@@ -407,14 +410,22 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
             stage,
         )
 
-        # LOG REALTIME ERROR
-        send_job_event(
-            user_id=str(pk),
-            event=build_log_event(
-                job_id,
-                f"Job failed at stage '{stage}': {str(exc)}"
+        # LOG REALTIME ERROR (best effort, never mask worker failure)
+        try:
+            send_job_event(
+                user_id=str(pk),
+                event=build_log_event(
+                    job_id,
+                    f"Job failed at stage '{stage}': {str(exc)}"
+                )
             )
-        )
+        except Exception:
+            logging.exception(
+                "Failed to publish realtime failure log for jobId=%s pk=%s corr=%s",
+                job_id,
+                pk,
+                correlation_id,
+            )
 
         if job_doc is not None:
             try:

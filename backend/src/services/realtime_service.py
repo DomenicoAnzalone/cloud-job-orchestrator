@@ -9,9 +9,17 @@ from src.shared.auth_utils import get_user_from_request
 
 def negotiate_realtime(req: func.HttpRequest) -> func.HttpResponse:
     correlation_id = req.headers.get("x-correlation-id") or str(uuid.uuid4())
-    
+
     # check authoritzation and get user by token
-    user = get_user_from_request(req)
+    try:
+        user = get_user_from_request(req)
+    except Exception:
+        return func.HttpResponse(
+            json.dumps({"error": "Unauthorized"}),
+            status_code=401,
+            mimetype="application/json",
+            headers={"x-correlation-id": correlation_id},
+        )
     pk = user["userId"]
 
     try:

@@ -15,6 +15,17 @@ from src.shared.job_types import is_valid_job_type
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
+
+def _mark_job_failed(container, job_doc: dict, *, code: str, message: str, stage: str) -> None:
+    job_doc["status"] = "failed"
+    job_doc["error"] = {
+        "code": code,
+        "message": message,
+        "stage": stage,
+    }
+    job_doc["updatedAt"] = utc_now_iso()
+    container.replace_item(item=job_doc["id"], body=job_doc)
+
 def _unauthorized_response(correlation_id: str) -> func.HttpResponse:
     return func.HttpResponse(
         json.dumps({"error": "Unauthorized"}),
@@ -114,6 +125,20 @@ def create_job(req: func.HttpRequest) -> func.HttpResponse:
         enqueue_job(sb_body, job_id=job_id, correlation_id=correlation_id)
     except Exception:
         logging.exception("Service Bus enqueue failed jobId=%s corr=%s", job_id, correlation_id)
+        try:
+            _mark_job_failed(
+                container,
+                job_doc,
+                code="ENQUEUE_FAILED",
+                message="Failed to enqueue job to Service Bus.",
+                stage="enqueue",
+            )
+        except Exception:
+            logging.exception(
+                "Failed to mark job as failed after enqueue error jobId=%s corr=%s",
+                job_id,
+                correlation_id,
+            )
         return func.HttpResponse(
             json.dumps({"error": "Failed to enqueue job to Service Bus", "jobId": job_id}),
             status_code=500,
