@@ -42,8 +42,8 @@
       <h1>Cloud Job Orchestrator — Demo UI</h1>
       <h3 id="subtitle">Bentornato:</h3>
       <p>
-        Minimal static frontend for the walking skeleton. It creates a job,
-        polls status, and retrieves the download link when the output is ready.
+        Upload an image and start a processing job. The system will handle execution,
+        track progress in real time, and provide the output file when ready.
       </p>
 
       <div class="stat submission-panel">
@@ -65,6 +65,8 @@
         <div class="actions">
           <button id="createBtn">Create Job</button>
         </div>
+
+        <div id="formError" class="form-error"></div>
 
         <div class="checkbox-row">
           <input id="forceDemoFail" type="checkbox" />

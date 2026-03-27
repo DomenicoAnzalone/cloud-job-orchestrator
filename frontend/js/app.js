@@ -435,9 +435,18 @@ async function createJob() {
     resetView();
 
     const image = els.imageFile.files?.[0];
+    const errorEl = document.getElementById("formError");
+
     if (!image) {
         log("Create job failed: please select an image file.");
+        if (errorEl) {
+            errorEl.textContent = "Seleziona un'immagine prima di creare il job";
+        }
         return;
+    }
+
+    if (errorEl) {
+        errorEl.textContent = "";
     }
 
     const selectedJobType = getSelectedJobType();
