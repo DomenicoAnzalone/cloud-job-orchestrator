@@ -178,6 +178,32 @@ async function disconnectRealtime() {
     setRealtimeStatus("disconnected");
 }
 
+function applyStatusStyle(statusEl, status) {
+    if (!statusEl) return;
+
+    const normalized = String(status || "").toLowerCase();
+
+    statusEl.classList.add("status-pill");
+    statusEl.classList.remove(
+        "status-queued",
+        "status-processing",
+        "status-completed",
+        "status-done",
+        "status-failed",
+        "status-canceled"
+    );
+
+    if (normalized === "queued" || normalized === "creating") {
+        statusEl.classList.add("status-queued");
+    } else if (normalized === "processing" || normalized === "in_progress" || normalized === "running") {
+        statusEl.classList.add("status-processing");
+    } else if (normalized === "done" || normalized === "completed") {
+        statusEl.classList.add("status-done");
+    } else if (normalized === "failed" || normalized === "canceled") {
+        statusEl.classList.add("status-failed");
+    }
+}
+
 function handleJobEvent(event) {
 
     if (!event.type) {
@@ -216,6 +242,7 @@ function handleJobEvent(event) {
         case "status":
             job.status = event.status;
             job.statusEl.textContent = event.status;
+            applyStatusStyle(job.statusEl, event.status);
             break;
 
         case "progress":
@@ -223,7 +250,11 @@ function handleJobEvent(event) {
             job.progress = event.progress ?? job.progress;
 
             job.statusEl.textContent = job.status;
-            job.progressEl.textContent = job.progress;
+            applyStatusStyle(job.statusEl, job.status);
+
+            if (job.progressFill) {
+                job.progressFill.style.width = (job.progress * 100) + "%";
+            }
             break;
 
         case "log":
@@ -237,7 +268,11 @@ function handleJobEvent(event) {
             job.status = "done";
             job.progress = 1;
             job.statusEl.textContent = "done";
-            job.progressEl.textContent = job.progress;
+            applyStatusStyle(job.statusEl, "done");
+
+            if (job.progressFill) {
+                job.progressFill.style.width = "100%";
+            }
 
             job.downloadBtn.disabled = false;
 
@@ -272,6 +307,7 @@ function handleJobEvent(event) {
         case "failed":
             job.status = "failed";
             job.statusEl.textContent = "failed";
+            applyStatusStyle(job.statusEl, "failed");
 
             job.error = event.error;
 
@@ -291,7 +327,7 @@ function createJobCard(jobId) {
     const card = clone.querySelector(".job-card");
     const jobIdEl = clone.querySelector(".job-id");
     const statusEl = clone.querySelector(".status");
-    const progressEl = clone.querySelector(".progress");
+    const progressFill = clone.querySelector(".progress-fill");
     const filenameEl = clone.querySelector(".filename");
     const jobTypeEl = clone.querySelector(".job-type");
     const logBox = clone.querySelector(".logBox");
@@ -304,7 +340,7 @@ function createJobCard(jobId) {
     return {
         card,
         statusEl,
-        progressEl,
+        progressFill,
         filenameEl,
         jobTypeEl,
         logBox,
@@ -399,9 +435,18 @@ async function createJob() {
     resetView();
 
     const image = els.imageFile.files?.[0];
+    const errorEl = document.getElementById("formError");
+
     if (!image) {
         log("Create job failed: please select an image file.");
+        if (errorEl) {
+            errorEl.textContent = "Seleziona un'immagine prima di creare il job";
+        }
         return;
+    }
+
+    if (errorEl) {
+        errorEl.textContent = "";
     }
 
     const selectedJobType = getSelectedJobType();

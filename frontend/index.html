@@ -42,8 +42,8 @@
       <h1>Cloud Job Orchestrator — Demo UI</h1>
       <h3 id="subtitle">Bentornato:</h3>
       <p>
-        Minimal static frontend for the walking skeleton. It creates a job,
-        polls status, and retrieves the download link when the output is ready.
+        Upload an image and start a processing job. The system will handle execution,
+        track progress in real time, and provide the output file when ready.
       </p>
 
       <div class="stat submission-panel">
@@ -66,6 +66,8 @@
           <button id="createBtn">Create Job</button>
         </div>
 
+        <div id="formError" class="form-error"></div>
+
         <div class="checkbox-row">
           <input id="forceDemoFail" type="checkbox" />
           <label for="forceDemoFail">Force DEMO failure</label>
@@ -76,12 +78,13 @@
         <button id="refreshBtn" class="secondary" disabled>Refresh Status</button>
         <button id="logoutBtn" class="secondary">Logout</button>
       </div>
+    </div>
 
-      <div id="jobsContainer" class="container"></div>
+    <div id="jobsContainer" class="container"></div>
 
       <template id="jobCardTemplate">
         <div class="card job-card">
-          <h3>Job id: <span class="job-id"></span></h3>
+          <h3>Job ID: <span class="job-id"></span></h3>
 
           <div class="grid">
             <div class="stat">
@@ -103,7 +106,9 @@
 
             <div class="stat">
               <div class="label">Progress</div>
-              <div class="value progress"></div>
+              <div class="progress-bar">
+                <div class="progress-fill"></div>
+              </div>
             </div>
           </div>
 
@@ -114,8 +119,6 @@
           <pre class="logBox"></pre>
         </div>
       </template>
-
-    </div>
   </div>
 </body>
 </html>
