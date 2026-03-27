@@ -3,6 +3,7 @@ import logging
 import time
 from io import BytesIO
 from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 import azure.functions as func
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
@@ -23,6 +24,7 @@ from src.shared.signalr_utils import (
 )
 
 TERMINAL_SKIP_STATUSES = {"done", "canceled"}
+HEARTBEAT_INTERVAL_SECONDS = 20
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -73,6 +75,44 @@ def _build_error_payload(code: str, message: str, stage: str) -> dict:
         "message": message,
         "stage": stage,
     }
+
+
+def _safe_emit_processing_heartbeat(
+    *,
+    pk: str,
+    job_id: str,
+    status: str,
+    progress: float,
+    message: str,
+) -> None:
+    try:
+        send_job_event(
+            user_id=str(pk),
+            event=build_log_event(job_id, message),
+        )
+        send_job_event(
+            user_id=str(pk),
+            event=build_progress_event(job_id, progress, status),
+        )
+    except Exception:
+        logging.exception("Failed to publish processing heartbeat for jobId=%s pk=%s", job_id, pk)
+
+
+def _run_with_heartbeat(
+    *,
+    operation_name: str,
+    heartbeat_callback,
+    interval_seconds: int,
+    fn,
+):
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(fn)
+        while True:
+            try:
+                return future.result(timeout=interval_seconds)
+            except FuturesTimeoutError:
+                logging.info("%s still running, publishing heartbeat", operation_name)
+                heartbeat_callback()
 
 
 def _remove_background(image_bytes: bytes) -> tuple[bytes, str, str]:
@@ -324,9 +364,20 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
         if not input_container or not input_blob_name:
             raise RuntimeError("Missing inputRef for job output build")
 
-        image_bytes = read_blob_bytes(
-            container_name=input_container,
-            blob_name=input_blob_name,
+        image_bytes = _run_with_heartbeat(
+            operation_name="read-input-blob",
+            interval_seconds=HEARTBEAT_INTERVAL_SECONDS,
+            heartbeat_callback=lambda: _safe_emit_processing_heartbeat(
+                pk=str(pk),
+                job_id=job_id,
+                status="processing",
+                progress=0.4,
+                message="Still processing input file...",
+            ),
+            fn=lambda: read_blob_bytes(
+                container_name=input_container,
+                blob_name=input_blob_name,
+            ),
         )
         job_type = job_doc.get("type")
         if not is_valid_job_type(job_type):
@@ -337,7 +388,18 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
             event=build_log_event(job_id, f"Applying transformation: {job_type}"),
         )
 
-        processed_bytes, output_extension, content_type = _process_image(job_type, image_bytes)
+        processed_bytes, output_extension, content_type = _run_with_heartbeat(
+            operation_name="process-image",
+            interval_seconds=HEARTBEAT_INTERVAL_SECONDS,
+            heartbeat_callback=lambda: _safe_emit_processing_heartbeat(
+                pk=str(pk),
+                job_id=job_id,
+                status="processing",
+                progress=0.55,
+                message=f"Still applying transformation: {job_type}",
+            ),
+            fn=lambda: _process_image(job_type, image_bytes),
+        )
         output_file_name = _build_output_filename(input_blob_name, output_extension)
 
         # Sleeping to allow the demo to display a “processing” status and progress before proceeding to the next stage.
@@ -359,12 +421,23 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
             event=build_log_event(job_id, "Uploading output to Blob Storage")
         )
 
-        output_ref = upload_output_file(
-            pk=pk,
-            job_id=job_id,
-            filename=output_file_name,
-            content=processed_bytes,
-            content_type=content_type,
+        output_ref = _run_with_heartbeat(
+            operation_name="upload-output-blob",
+            interval_seconds=HEARTBEAT_INTERVAL_SECONDS,
+            heartbeat_callback=lambda: _safe_emit_processing_heartbeat(
+                pk=str(pk),
+                job_id=job_id,
+                status="processing",
+                progress=0.75,
+                message="Still uploading output file...",
+            ),
+            fn=lambda: upload_output_file(
+                pk=pk,
+                job_id=job_id,
+                filename=output_file_name,
+                content=processed_bytes,
+                content_type=content_type,
+            ),
         )
 
         # Sleeping to allow the demo to display a “processing” status and progress before proceeding to the next stage.

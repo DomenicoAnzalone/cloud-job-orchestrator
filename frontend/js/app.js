@@ -109,6 +109,11 @@ async function connectRealtime() {
         .configureLogging(signalR.LogLevel.Warning)
         .build();
 
+    // Alcune trasformazioni possono impiegare più di 30s senza eventi;
+    // aumentiamo il timeout client per evitare disconnessioni premature.
+    signalrConnection.keepAliveIntervalInMilliseconds = 15000;
+    signalrConnection.serverTimeoutInMilliseconds = 120000;
+
     signalrConnection.on("jobUpdated", (event) => {
 
         if (!event || !event.jobId) return;
