@@ -257,7 +257,8 @@ a.button-link.disabled {
 
 .stat .label {
     color: #b44df8;
-    font-size: 13px;
+    font-size: 16px;
+    font-weight: 700;
     margin-bottom: 5px;
 }
 
@@ -272,18 +273,19 @@ a.button-link.disabled {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 7px 12px;
+    padding: 4px 10px;
     border-radius: 999px;
-    font-size: 12px;
-    font-weight: 800;
+    font-size: 4px;
+    font-weight: 700;
     letter-spacing: 0.02em;
     text-transform: uppercase;
     background: #1e293b;
     color: var(--text);
-    min-width: 96px;
+    min-width: 70px;
+    margin-top: 4px;
 }
 
-.status-queued { background: #1e293b; color: #cbd5e1; }
+.status-queued { background: #b7c0d1; color: #505861; }
 .status-processing { background: rgba(245, 158, 11, 0.15); color: var(--warn); }
 .status-completed,
 .status-done { background: rgba(34, 197, 94, 0.15); color: var(--ok); }

@@ -178,6 +178,32 @@ async function disconnectRealtime() {
     setRealtimeStatus("disconnected");
 }
 
+function applyStatusStyle(statusEl, status) {
+    if (!statusEl) return;
+
+    const normalized = String(status || "").toLowerCase();
+
+    statusEl.classList.add("status-pill");
+    statusEl.classList.remove(
+        "status-queued",
+        "status-processing",
+        "status-completed",
+        "status-done",
+        "status-failed",
+        "status-canceled"
+    );
+
+    if (normalized === "queued" || normalized === "creating") {
+        statusEl.classList.add("status-queued");
+    } else if (normalized === "processing" || normalized === "in_progress" || normalized === "running") {
+        statusEl.classList.add("status-processing");
+    } else if (normalized === "done" || normalized === "completed") {
+        statusEl.classList.add("status-done");
+    } else if (normalized === "failed" || normalized === "canceled") {
+        statusEl.classList.add("status-failed");
+    }
+}
+
 function handleJobEvent(event) {
 
     if (!event.type) {
@@ -216,6 +242,7 @@ function handleJobEvent(event) {
         case "status":
             job.status = event.status;
             job.statusEl.textContent = event.status;
+            applyStatusStyle(job.statusEl, event.status);
             break;
 
         case "progress":
@@ -223,6 +250,8 @@ function handleJobEvent(event) {
             job.progress = event.progress ?? job.progress;
 
             job.statusEl.textContent = job.status;
+            applyStatusStyle(job.statusEl, job.status);
+
             if (job.progressFill) {
                 job.progressFill.style.width = (job.progress * 100) + "%";
             }
@@ -239,6 +268,8 @@ function handleJobEvent(event) {
             job.status = "done";
             job.progress = 1;
             job.statusEl.textContent = "done";
+            applyStatusStyle(job.statusEl, "done");
+
             if (job.progressFill) {
                 job.progressFill.style.width = "100%";
             }
@@ -276,6 +307,7 @@ function handleJobEvent(event) {
         case "failed":
             job.status = "failed";
             job.statusEl.textContent = "failed";
+            applyStatusStyle(job.statusEl, "failed");
 
             job.error = event.error;
 
