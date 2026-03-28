@@ -14,7 +14,7 @@ const els = {
 let currentUserId = null;
 let pollHandle = null;
 let signalrConnection = null;
-let apiBaseUrl = "http://localhost:7071/api";
+let apiBaseUrl = getApiBaseUrl();
 
 let pollingInProgress = false;
 let realtimeConnected = false;
@@ -49,6 +49,13 @@ window.onload = async () => {
         document.getElementById("subtitle").textContent = `Bentornato: ${displayName}`;
     }
 };
+
+function getApiBaseUrl() {
+    if (window.APP_CONFIG && window.APP_CONFIG.API_BASE_URL) {
+        return window.APP_CONFIG.API_BASE_URL;
+    }
+    return "http://localhost:7071/api"; // fallback locale
+}
 
 async function authentication() {
     els.loginBtn.disabled = true;
@@ -385,6 +392,13 @@ function getApiBase() {
 }
 
 async function loadApiBaseFromSettings() {
+
+    if (window.APP_CONFIG && window.APP_CONFIG.API_BASE_URL) {
+        apiBaseUrl = window.APP_CONFIG.API_BASE_URL;
+        log("API base loaded from config.js");
+        return;
+    }
+
     const candidates = [
         "/local.settings.json",
         "/backend/local.settings.json",
@@ -405,11 +419,10 @@ async function loadApiBaseFromSettings() {
                 log(`API base loaded from ${path}`);
                 return;
             }
-        } catch (_) {
-            // fallback
-        }
+        } catch (_) {}
     }
 
+    apiBaseUrl = "http://localhost:7071/api";
     log("Using default API base URL.");
 }
 

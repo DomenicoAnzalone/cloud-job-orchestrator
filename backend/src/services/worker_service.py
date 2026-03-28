@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import time
 from io import BytesIO
 from datetime import datetime, timezone
@@ -127,7 +128,6 @@ def _remove_background(image_bytes: bytes) -> tuple[bytes, str, str]:
             return output_stream.getvalue(), ".png", "image/png"
 
         # Stima del colore di sfondo usando campioni presi dai bordi.
-        # Questo è più robusto di una soglia fissa su tutto l'immagine.
         border_samples: list[tuple[int, int, int]] = []
 
         step_x = max(1, width // 30)
@@ -249,10 +249,9 @@ def _process_image(job_type: str, image_bytes: bytes) -> tuple[bytes, str | None
 
 def process_job_message(msg: func.ServiceBusMessage) -> None:
 
-    sleep_time = 0.1 
-
     raw_body = msg.get_body().decode("utf-8", errors="replace")
     delivery_count = int(getattr(msg, "delivery_count", 0) or 0)
+    delay = int(os.environ.get("WORKER_DELAY_SECONDS", "0"))
 
     logging.info(
         "JobsWorker received message. deliveryCount=%s body=%s",
@@ -305,9 +304,8 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
         return
 
     try:
-        # =========================
         # START PROCESSING
-        # =========================
+        time.sleep(delay) # Simulated delay to allow the demo to display a "queued" status before moving to "processing". "delay" connfiguble via WORKER_DELAY_SECONDS environment variable.
         stage = "mark-processing"
         job_doc["status"] = "processing"
         job_doc["progress"] = 0.1
@@ -323,9 +321,7 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
         _replace_job(container, job_doc)
         _publish_job_update(job_doc, correlation_id)
 
-        # =========================
         # FORCED FAILURE (DEMO)
-        # =========================
         if _is_forced_failure(job_doc):
             stage = "forced-demo-failure"
 
@@ -334,22 +330,15 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
                 event=build_log_event(job_id, "Forced failure triggered (demo mode)")
             )
 
-            time.sleep(sleep_time)
             raise RuntimeError("Forced demo failure (parameters.fail=true)")
 
-
-        # Sleeping to allow the demo to display a “processing” status and progress before proceeding to the next stage.
-        time.sleep(sleep_time)
-
-        job_doc["status"] = "processing"
+        # progress update 0.4 after initial processing and before starting the output build.
         job_doc["progress"] = 0.4
 
         _replace_job(container, job_doc)
         _publish_job_update(job_doc, correlation_id)
 
-        # =========================
         # BUILD OUTPUT
-        # =========================
         stage = "build-output"
 
         send_job_event(
@@ -402,18 +391,13 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
         )
         output_file_name = _build_output_filename(input_blob_name, output_extension)
 
-        # Sleeping to allow the demo to display a “processing” status and progress before proceeding to the next stage.
-        time.sleep(sleep_time)
-
-        job_doc["status"] = "processing"
+        # progress update 0.7 after processing and before starting the upload.
         job_doc["progress"] = 0.7
 
         _replace_job(container, job_doc)
         _publish_job_update(job_doc, correlation_id)
 
-        # =========================
         # UPLOAD OUTPUT
-        # =========================
         stage = "upload-output"
 
         send_job_event(
@@ -440,20 +424,16 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
             ),
         )
 
-        # Sleeping to allow the demo to display a “processing” status and progress before proceeding to the next stage.
-        time.sleep(sleep_time)
-
-        job_doc["status"] = "processing"
-        job_doc["progress"] = 0.7
+        # progress update 0.9 after upload and before finalizing the job document with outputRef.
+        job_doc["progress"] = 0.9
 
         _replace_job(container, job_doc)
         _publish_job_update(job_doc, correlation_id)
 
-        # =========================
         # FINALIZE
-        # =========================
         stage = "finalize"
 
+        # progress update to 1.0 with outputRef in the job document and status set to "done".
         job_doc["status"] = "done"
         job_doc["progress"] = 1.0
         job_doc["outputRef"] = output_ref

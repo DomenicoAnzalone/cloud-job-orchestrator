@@ -203,7 +203,6 @@ def get_job_status(req: func.HttpRequest) -> func.HttpResponse:
     try:
         doc = container.read_item(item=job_id, partition_key=pk)
     
-    # TO-DO: gestire eccezione se job non trovato (404)
     except CosmosResourceNotFoundError:
         return func.HttpResponse(
             json.dumps({"error": "Job not found."}),

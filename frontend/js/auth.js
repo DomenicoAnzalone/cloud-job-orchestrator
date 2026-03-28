@@ -34,7 +34,6 @@ async function getAccessToken() {
 
   if (!account) {
     throw new Error("No active account");
-    // TO-DO : forzare il login se non c'è un account attivo, invece di lanciare un errore
   }
 
   const response = await msalInstance.acquireTokenSilent({
