@@ -1,6 +1,7 @@
 import logging
 import azure.functions as func
 
+from src.services.cleanup_service import cleanup_old_completed_jobs
 from src.services.jobs_service import create_job, get_job_status, get_job_output_link
 from src.services.worker_service import process_job_message
 from src.services.realtime_service import negotiate_realtime
@@ -43,3 +44,13 @@ def jobs_worker(msg: func.ServiceBusMessage) -> None:
 )
 def realtime_negotiate_api(req: func.HttpRequest) -> func.HttpResponse:
     return negotiate_realtime(req)
+
+@app.function_name(name="CleanupOldCompletedJobs")
+@app.schedule(
+    schedule="0 */15 * * * *",
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def cleanup_old_completed_jobs_trigger(timer: func.TimerRequest) -> None:
+    cleanup_old_completed_jobs(timer)
