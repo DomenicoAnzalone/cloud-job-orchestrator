@@ -3,7 +3,6 @@ const els = {
     imageFile: document.getElementById("imageFile"),
     createBtn: document.getElementById("createBtn"),
     forceDemoFail: document.getElementById("forceDemoFail"),
-    refreshBtn: document.getElementById("refreshBtn"),
     loginBtn: document.getElementById("loginBtn"),
     logoutBtn: document.getElementById("logoutBtn"),
     state: document.getElementById("loginStatus"),
@@ -364,8 +363,6 @@ function resetView() {
     stopPolling();
 
     setRealtimeStatus("disconnected");
-
-    els.refreshBtn.disabled = true;
 }
 
 function stopPolling() {
@@ -504,7 +501,6 @@ async function createJob() {
         jobType: selectedJobType,
         filename: image.name
     });
-    els.refreshBtn.disabled = false;
 
     await refreshJobStatus(jobId);
 
@@ -597,7 +593,6 @@ async function refreshAllJobs() {
 }
 
 els.createBtn.addEventListener("click", createJob);
-els.refreshBtn.addEventListener("click", refreshAllJobs);
 if (els.loginBtn) {
     els.loginBtn.addEventListener("click", authentication);
 }
