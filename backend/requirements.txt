@@ -15,4 +15,5 @@ azure-identity
 PyJWT==2.8.0
 cryptography==42.0.5
 requests==2.31.0
+rembg[cpu]==2.*
 Pillow==10.4.0
