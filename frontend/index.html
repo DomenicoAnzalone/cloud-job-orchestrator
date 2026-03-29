@@ -4,15 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cloud Job Orchestrator</title>
+
+  <link rel="stylesheet" href="css/style.css"/>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js" defer></script>
+  <script src="js/app.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.0/dist/browser/signalr.min.js"></script>
+  <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
 </head>
-<link rel="stylesheet" href="css/style.css"/>
-<script src="js/config.js"></script>
-<script src="js/auth.js" defer></script>
-<script src="js/app.js" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@latest/dist/browser/signalr.min.js"></script>
-<script src="https://alcdn.msauth.net/browser/2.37.0/js/msal-browser.min.js"></script>
-<div id="busySpinner" class="busy-spinner" aria-hidden="true"></div>
+
 <body>
+
+  <div id="busySpinner" class="busy-spinner" aria-hidden="true"></div>
 
   <div id="authOverlay" style="
     position: fixed;
