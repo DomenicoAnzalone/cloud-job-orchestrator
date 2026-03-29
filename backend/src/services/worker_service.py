@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import time
-from rembg import remove, new_session
 from io import BytesIO
 from PIL import Image
 from datetime import datetime, timezone
@@ -27,7 +26,7 @@ from src.shared.signalr_utils import (
 
 TERMINAL_SKIP_STATUSES = {"done", "canceled"}
 HEARTBEAT_INTERVAL_SECONDS = 20
-_REMBG_SESSION = new_session()
+REMBG_SESSION = None
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -117,14 +116,23 @@ def _run_with_heartbeat(
                 logging.info("%s still running, publishing heartbeat", operation_name)
                 heartbeat_callback()
 
+def _get_rembg_session():
+    global REMBG_SESSION
+    if REMBG_SESSION is None:
+        from rembg import new_session
+        REMBG_SESSION = new_session()
+    return REMBG_SESSION
+
 
 def _remove_background(image_bytes: bytes) -> tuple[bytes, str, str]:
+    from rembg import remove  # lazy import
+
     with Image.open(BytesIO(image_bytes)) as image:
-        # Normalizza l'input per evitare problemi con immagini palette/cmyk
         rgba = image.convert("RGBA")
 
-        # rembg restituisce un'immagine PIL quando l'input è PIL
-        output = remove(rgba, session=_REMBG_SESSION)
+        session = _get_rembg_session()
+
+        output = remove(rgba, session=session)
 
         output_stream = BytesIO()
         output.save(output_stream, format="PNG")
