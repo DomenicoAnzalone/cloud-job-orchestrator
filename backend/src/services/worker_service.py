@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import time
-from rembg import remove, new_session
 from io import BytesIO
 from PIL import Image
 from datetime import datetime, timezone
@@ -27,7 +26,7 @@ from src.shared.signalr_utils import (
 
 TERMINAL_SKIP_STATUSES = {"done", "canceled"}
 HEARTBEAT_INTERVAL_SECONDS = 20
-_REMBG_SESSION = new_session()
+REMBG_SESSION = None
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -57,7 +56,7 @@ def _publish_job_update(job_doc: dict, correlation_id: str | None) -> None:
         if status == "done":
             send_job_event(user_id, build_completed_event(job_id))
         elif status == "failed":
-            send_job_event(user_id, build_failed_event(job_id, error))
+            pass
 
     except Exception:
         logging.exception(
@@ -117,14 +116,23 @@ def _run_with_heartbeat(
                 logging.info("%s still running, publishing heartbeat", operation_name)
                 heartbeat_callback()
 
+def _get_rembg_session():
+    global REMBG_SESSION
+    if REMBG_SESSION is None:
+        from rembg import new_session
+        REMBG_SESSION = new_session()
+    return REMBG_SESSION
+
 
 def _remove_background(image_bytes: bytes) -> tuple[bytes, str, str]:
+    from rembg import remove  # lazy import
+
     with Image.open(BytesIO(image_bytes)) as image:
-        # Normalizza l'input per evitare problemi con immagini palette/cmyk
         rgba = image.convert("RGBA")
 
-        # rembg restituisce un'immagine PIL quando l'input è PIL
-        output = remove(rgba, session=_REMBG_SESSION)
+        session = _get_rembg_session()
+
+        output = remove(rgba, session=session)
 
         output_stream = BytesIO()
         output.save(output_stream, format="PNG")
@@ -173,7 +181,7 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
     delay = int(os.environ.get("WORKER_DELAY_SECONDS", "0"))
 
     logging.info(
-        "JobsWorker received message. deliveryCount=%s body=%s",
+        "JobsWorker received message | deliveryCount=%s | body=%s",
         delivery_count,
         raw_body,
     )
@@ -234,7 +242,10 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
 
         send_job_event(
             user_id=str(pk),
-            event=build_log_event(job_id, "Job started processing, attempt #%d" % job_doc["attempts"])
+            event=build_log_event(
+                job_id,
+                f"Processing started | attempt {job_doc['attempts']} | deliveryCount={delivery_count} | type={job_doc.get('type')}"
+            )
         )
 
         _replace_job(container, job_doc)
@@ -246,7 +257,10 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
 
             send_job_event(
                 user_id=str(pk),
-                event=build_log_event(job_id, "Forced failure triggered (demo mode)")
+                event=build_log_event(
+                    job_id,
+                    f"DEMO | forced failure | attempt {job_doc['attempts']}"
+                )
             )
 
             raise RuntimeError("Forced demo failure (parameters.fail=true)")
@@ -259,11 +273,6 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
 
         # BUILD OUTPUT
         stage = "build-output"
-
-        send_job_event(
-            user_id=str(pk),
-            event=build_log_event(job_id, "Building output result")
-        )
 
         input_ref = job_doc.get("inputRef") or {}
         input_container = input_ref.get("container")
@@ -280,7 +289,7 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
                 job_id=job_id,
                 status="processing",
                 progress=0.4,
-                message="Still processing input file...",
+                message="Reading input file from Blob Storage...",
             ),
             fn=lambda: read_blob_bytes(
                 container_name=input_container,
@@ -304,7 +313,7 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
                 job_id=job_id,
                 status="processing",
                 progress=0.55,
-                message=f"Still applying transformation: {job_type}",
+                message=f"Transformation still running: {job_type}",
             ),
             fn=lambda: _process_image(job_type, image_bytes),
         )
@@ -332,7 +341,7 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
                 job_id=job_id,
                 status="processing",
                 progress=0.75,
-                message="Still uploading output file...",
+                message="Uploading output file to Blob Storage...",
             ),
             fn=lambda: upload_output_file(
                 pk=pk,
@@ -388,7 +397,7 @@ def process_job_message(msg: func.ServiceBusMessage) -> None:
                 user_id=str(pk),
                 event=build_log_event(
                     job_id,
-                    f"Job failed at stage '{stage}': {str(exc)}"
+                    f"ERROR | stage={stage} | {str(exc)}"
                 )
             )
         except Exception:
