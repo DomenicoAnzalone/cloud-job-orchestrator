@@ -93,7 +93,7 @@ h3 {
 p {
   color: var(--color-text-soft);
   line-height: 1.5;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .row {
@@ -354,6 +354,7 @@ a.button-link.disabled {
 }
 
 pre {
+  font-size: 15px;
   margin: 0;
   padding: 12px;
   overflow: auto;
