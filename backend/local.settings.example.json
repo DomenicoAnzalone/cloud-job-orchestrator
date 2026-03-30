@@ -1,0 +1,43 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "SERVICEBUS_CONNECTION": "Endpoint=sb://<namespace>.servicebus.windows.net/;SharedAccessKeyName=<key_name>;SharedAccessKey=<key_value>",
+    "SERVICEBUS_JOBS_QUEUE": "q-jobs",
+    "COSMOS_ENDPOINT": "https://<cosmos-account>.documents.azure.com:443/",
+    "COSMOS_KEY": "<cosmos-key>",
+    "COSMOS_DB": "cjo",
+    "COSMOS_CONTAINER": "jobs",
+    "BLOB_CONNECTION": "DefaultEndpointsProtocol=https;AccountName=<storage-account>;AccountKey=<account-key>;EndpointSuffix=core.windows.net",
+    "BLOB_ACCOUNT_URL": "https://<storage-account>.blob.core.windows.net",
+    "BLOB_OUTPUT_CONTAINER": "output",
+    "OUTPUT_LINK_TTL_MINUTES": "10",
+    "SIGNALR_CONNECTION_STRING": "Endpoint=https://<signalr-name>.service.signalr.net;AccessKey=<signalr-key>;Version=1.0;",
+    "SIGNALR_HUB_NAME": "jobs",
+    "WORKER_DELAY_SECONDS": "0",
+    "FRONTEND_API_BASE_URL": "http://localhost:7071/api",
+    "API_BASE_URL": "http://localhost:7071/api",
+    "CJO_API_BASE_URL": "http://localhost:7071/api"
+  },
+  "Comments": {
+    "FUNCTIONS_WORKER_RUNTIME": "Azure Functions runtime language worker.",
+    "AzureWebJobsStorage": "Storage connection used by Functions runtime/triggers.",
+    "SERVICEBUS_CONNECTION": "Service Bus connection for queue trigger and sender.",
+    "SERVICEBUS_JOBS_QUEUE": "Queue name for job dispatch (optional override).",
+    "COSMOS_ENDPOINT": "Cosmos DB account endpoint URL.",
+    "COSMOS_KEY": "Cosmos DB account key.",
+    "COSMOS_DB": "Cosmos DB database name.",
+    "COSMOS_CONTAINER": "Cosmos DB container name.",
+    "BLOB_CONNECTION": "Blob Storage connection string used for upload/download.",
+    "BLOB_ACCOUNT_URL": "Blob account URL used to build user delegation SAS links.",
+    "BLOB_OUTPUT_CONTAINER": "Container name used for job outputs.",
+    "OUTPUT_LINK_TTL_MINUTES": "Signed output-link lifetime in minutes.",
+    "SIGNALR_CONNECTION_STRING": "Azure SignalR connection string.",
+    "SIGNALR_HUB_NAME": "SignalR hub name used for realtime updates.",
+    "WORKER_DELAY_SECONDS": "Optional demo delay before worker transitions to processing.",
+    "FRONTEND_API_BASE_URL": "Frontend API base URL loaded from settings.",
+    "API_BASE_URL": "Backward-compatible frontend API base URL alias.",
+    "CJO_API_BASE_URL": "Backward-compatible frontend API base URL alias."
+  }
+}
