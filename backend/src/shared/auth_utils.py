@@ -1,12 +1,18 @@
+import os
 import jwt
 import requests
 from functools import lru_cache
 
-TENANT_ID = "1ff1ab6f-5116-43af-a48b-d8da1301df40"
-AUDIENCE = "api://52836a8b-6649-49ac-acbe-53caeccd542f"
+def _required_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+TENANT_ID = _required_env("AZURE_AD_TENANT_ID")
+AUDIENCE = _required_env("AZURE_AD_API_AUDIENCE")
 
 JWKS_URL = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/v2.0/keys"
-
 
 @lru_cache()
 def get_jwks():

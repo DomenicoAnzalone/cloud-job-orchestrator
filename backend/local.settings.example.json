@@ -18,7 +18,9 @@
     "WORKER_DELAY_SECONDS": "0",
     "FRONTEND_API_BASE_URL": "http://localhost:7071/api",
     "API_BASE_URL": "http://localhost:7071/api",
-    "CJO_API_BASE_URL": "http://localhost:7071/api"
+    "CJO_API_BASE_URL": "http://localhost:7071/api",
+    "AZURE_AD_TENANT_ID": "<tenant-guid>",
+    "AZURE_AD_API_AUDIENCE": "api://<api-app-id>"
   },
   "Comments": {
     "FUNCTIONS_WORKER_RUNTIME": "Azure Functions runtime language worker.",

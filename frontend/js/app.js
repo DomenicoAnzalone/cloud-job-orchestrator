@@ -56,7 +56,7 @@ function getApiBaseUrl() {
     if (window.APP_CONFIG && window.APP_CONFIG.API_BASE_URL) {
         return window.APP_CONFIG.API_BASE_URL;
     }
-    return "http://localhost:7071/api"; // fallback locale
+    throw new Error("Missing API base URL configuration.");
 }
 
 async function authentication() {
@@ -428,7 +428,7 @@ async function loadApiBaseFromSettings() {
         } catch (_) {}
     }
 
-    apiBaseUrl = "http://localhost:7071/api";
+    apiBaseUrl = window.APP_CONFIG.API_BASE_URL;
     log("Using default API base URL.");
 }
 
