@@ -3,6 +3,7 @@
   "Values": {
     "FUNCTIONS_WORKER_RUNTIME": "python",
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "DEPLOYMENT_STORAGE_CONNECTION_STRING": "<connection-string>",
     "SERVICEBUS_CONNECTION": "Endpoint=sb://<namespace>.servicebus.windows.net/;SharedAccessKeyName=<key_name>;SharedAccessKey=<key_value>",
     "SERVICEBUS_JOBS_QUEUE": "q-jobs",
     "COSMOS_ENDPOINT": "https://<cosmos-account>.documents.azure.com:443/",
@@ -12,21 +13,24 @@
     "BLOB_CONNECTION": "DefaultEndpointsProtocol=https;AccountName=<storage-account>;AccountKey=<account-key>;EndpointSuffix=core.windows.net",
     "BLOB_ACCOUNT_URL": "https://<storage-account>.blob.core.windows.net",
     "BLOB_OUTPUT_CONTAINER": "output",
+    "BLOB_INPUT_CONTAINER": "input",
     "OUTPUT_LINK_TTL_MINUTES": "10",
     "SIGNALR_CONNECTION_STRING": "Endpoint=https://<signalr-name>.service.signalr.net;AccessKey=<signalr-key>;Version=1.0;",
     "SIGNALR_HUB_NAME": "jobs",
     "WORKER_DELAY_SECONDS": "0",
     "FRONTEND_API_BASE_URL": "http://localhost:7071/api",
-    "API_BASE_URL": "http://localhost:7071/api",
-    "CJO_API_BASE_URL": "http://localhost:7071/api",
     "AZURE_AD_TENANT_ID": "<tenant-guid>",
-    "AZURE_AD_API_AUDIENCE": "api://<api-app-id>"
+    "AZURE_AD_API_AUDIENCE": "api://<api-app-id>",
+    "AZURE_AD_CLIENT_ID": "<client-id>",
+    "AZURE_AD_API_SCOPE": "api://<api-app-id>/.default",
+    "AZURE_AD_AUTHORITY": "https://login.microsoftonline.com/<tenant-id>"
   },
   "Comments": {
     "FUNCTIONS_WORKER_RUNTIME": "Azure Functions runtime language worker.",
     "AzureWebJobsStorage": "Storage connection used by Functions runtime/triggers.",
+    "DEPLOYMENT_STORAGE_CONNECTION_STRING": "Storage account connection string used for deployment artifacts or additional storage operations.",
     "SERVICEBUS_CONNECTION": "Service Bus connection for queue trigger and sender.",
-    "SERVICEBUS_JOBS_QUEUE": "Queue name for job dispatch (optional override).",
+    "SERVICEBUS_JOBS_QUEUE": "Queue name for job dispatch (must match trigger binding if overridden).",
     "COSMOS_ENDPOINT": "Cosmos DB account endpoint URL.",
     "COSMOS_KEY": "Cosmos DB account key.",
     "COSMOS_DB": "Cosmos DB database name.",
@@ -34,12 +38,16 @@
     "BLOB_CONNECTION": "Blob Storage connection string used for upload/download.",
     "BLOB_ACCOUNT_URL": "Blob account URL used to build user delegation SAS links.",
     "BLOB_OUTPUT_CONTAINER": "Container name used for job outputs.",
+    "BLOB_INPUT_CONTAINER": "Container name used for job input uploads.",
     "OUTPUT_LINK_TTL_MINUTES": "Signed output-link lifetime in minutes.",
     "SIGNALR_CONNECTION_STRING": "Azure SignalR connection string.",
     "SIGNALR_HUB_NAME": "SignalR hub name used for realtime updates.",
-    "WORKER_DELAY_SECONDS": "Optional demo delay before worker transitions to processing.",
-    "FRONTEND_API_BASE_URL": "Frontend API base URL loaded from settings.",
-    "API_BASE_URL": "Backward-compatible frontend API base URL alias.",
-    "CJO_API_BASE_URL": "Backward-compatible frontend API base URL alias."
+    "WORKER_DELAY_SECONDS": "Optional delay (in seconds) before worker transitions to processing state (useful for demos/testing).",
+    "FRONTEND_API_BASE_URL": "Frontend API base URL injected into client runtime configuration.",
+    "AZURE_AD_TENANT_ID": "Azure AD tenant identifier used for authentication and token validation.",
+    "AZURE_AD_API_AUDIENCE": "Expected audience (Application ID URI) of incoming access tokens for backend validation.",
+    "AZURE_AD_CLIENT_ID": "Azure AD app registration client ID used by the frontend for MSAL authentication.",
+    "AZURE_AD_API_SCOPE": "OAuth2 scope requested by the frontend to access the backend API (must match 'Expose an API' configuration).",
+    "AZURE_AD_AUTHORITY": "Azure AD authority URL used to authenticate users against the specified tenant."
   }
 }
