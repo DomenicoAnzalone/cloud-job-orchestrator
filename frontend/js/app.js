@@ -21,9 +21,6 @@ let realtimeConnected = false;
 const jobsMap = new Map(); // jobId -> { data + domRefs }
 const allowedJobTypes = ["background_removal", "image_upscale"];
 
-const busySpinner = document.getElementById("busySpinner");
-let busyCursorEnabled = false;
-
 window.onload = async () => {
     log("Application loading...");
     await loadApiBaseFromSettings();
@@ -185,12 +182,6 @@ async function disconnectRealtime() {
     signalrConnection = null;
     realtimeConnected = false;
     setRealtimeStatus("disconnected");
-}
-
-function setBusyCursor(enabled) {
-    busyCursorEnabled = enabled;
-    document.body.classList.toggle("is-busy", enabled);
-    busySpinner?.classList.toggle("visible", enabled);
 }
 
 function applyStatusStyle(statusEl, status) {
@@ -487,7 +478,7 @@ async function createJob() {
     );
 
     els.createBtn.disabled = true;
-    setBusyCursor(true);
+    document.body.style.cursor = "wait";
 
     if (!signalrConnection) {
         await connectRealtime();
@@ -522,7 +513,7 @@ async function createJob() {
         log(`Create job failed: ${err.message}`);
     } finally {
         els.createBtn.disabled = false;
-        setBusyCursor(false);
+        document.body.style.cursor = "default";
     }
 }
 
@@ -611,12 +602,5 @@ if (els.loginBtn) {
 if (els.logoutBtn) {
     els.logoutBtn.addEventListener("click", logout);
 }
-
-document.addEventListener("mousemove", (e) => {
-    if (!busyCursorEnabled || !busySpinner) return;
-
-    busySpinner.style.left = `${e.clientX + 14}px`;
-    busySpinner.style.top = `${e.clientY + 14}px`;
-});
 
 resetView();
