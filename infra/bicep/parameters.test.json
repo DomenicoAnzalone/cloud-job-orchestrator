@@ -1,0 +1,57 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "value": "dev"
+    },
+    "location": {
+      "value": "eastus"
+    },
+    "namePrefix": {
+      "value": "cjo"
+    },
+    "serviceBusQueueName": {
+      "value": "q-jobs"
+    },
+    "cosmosDatabaseName": {
+      "value": "cjo"
+    },
+    "cosmosContainerName": {
+      "value": "jobs"
+    },
+    "cosmosPartitionKeyPath": {
+      "value": "/pk"
+    },
+    "signalrHubName": {
+      "value": "jobs"
+    },
+    "blobOutputContainerName": {
+      "value": "output"
+    },
+    "blobInputContainerName": {
+      "value": "input"
+    },
+    "webPlanSkuName": {
+      "value": "B1"
+    },
+    "webPlanSkuTier": {
+      "value": "Basic"
+    },
+    "appInsightsDailyCapGb": {
+      "value": 5
+    },
+    "azureAdTenantId": {
+      "value": "<set-manually>"
+    },
+    "azureAdClientId": {
+      "value": "<set-manually>"
+    },
+    "azureAdApiAudience": {
+      "value": "<set-manually>"
+    },
+    "azureAdApiScope": {
+      "value": "<set-manually>"
+    }
+  }
+}
