@@ -29,8 +29,6 @@
   <img src="https://img.shields.io/badge/messaging-Service%20Bus-FF6F00?style=flat" />
 </p>
 
----
-
 ## Indice
 
 - [Cloud Job Orchestrator](#cloud-job-orchestrator)
@@ -49,8 +47,6 @@
 - [Come fare il deploy da zero](#come-fare-il-deploy-da-zero)
 - [Limiti attuali e sviluppi futuri](#limiti-attuali-e-sviluppi-futuri)
 - [Licenza e crediti](#licenza-e-crediti)
-
----
 
 ## Cloud Job Orchestrator
 
@@ -73,8 +69,6 @@ Questo approccio abilita:
 
 Il caso d’uso implementato è l’orchestrazione di job immagine asincroni con output persistito su Blob Storage, monitoraggio stato in UI e notifiche realtime per utente/job.
 I due job attuali (**background removal** e **image upscale**) sono esempi concreti di una pipeline più generale: il focus principale del progetto è l’architettura che li supporta, non il singolo algoritmo di elaborazione.
-
----
 
 ## Architettura ad alto livello
 
@@ -111,8 +105,6 @@ Componenti principali presenti nel repository:
 **Placeholder immagine architetturale:**
 > _[Da sostituire con diagramma architetturale ufficiale del sistema.]_
 
----
-
 ## Workflow end-to-end
 
 1. **Creazione job da UI**
@@ -135,8 +127,6 @@ Componenti principali presenti nel repository:
    - Se realtime non disponibile, frontend continua monitoraggio via polling API.
 10. **Download finale**
    - UI richiede `output-link`; backend genera URL SAS temporaneo per scaricare l’output.
-
----
 
 ## Funzionalità principali
 
@@ -161,8 +151,6 @@ Capacità effettivamente implementate:
 2. **image_upscale**
    - Usa Pillow con resize LANCZOS (attualmente fattore 2x).
    - Tenta di preservare il formato originale quando disponibile.
-
----
 
 ## Servizi Azure usati e perché
 
@@ -227,8 +215,6 @@ Esempio sintetico di documento job in Cosmos DB:
 }
 ```
 
----
-
 ## Dettagli di implementazione
 
 Il progetto è strutturato in moduli e servizi separati, non come demo monolitica:
@@ -244,8 +230,6 @@ Il progetto è strutturato in moduli e servizi separati, non come demo monolitic
 
 Scelta operativa rilevante: in `backend/host.json` il trigger Service Bus usa **`maxConcurrentCalls: 2`** per istanza. Questa configurazione è stata mantenuta dopo test/osservazioni su Application Insights per ridurre saturazione risorse e prevenire instabilità/crash delle singole istanze quando i job sono pesanti (es. elaborazioni immagine con librerie native).
 
----
-
 ## Perché questa architettura
 
 Trade-off principale: preferire disaccoppiamento e robustezza operativa rispetto a una pipeline sincrona semplice.
@@ -258,8 +242,6 @@ Benefici pratici:
 - **isolamento** dei job e del runtime di elaborazione;
 - **gestione picchi** tramite coda;
 - **riduzione del coupling** tra esperienza utente e tempi reali di processing.
-
----
 
 ## Sicurezza e confini
 
@@ -278,8 +260,6 @@ Benefici pratici:
 - **Superficie non esposta**
   - Worker Service Bus, accesso diretto a Cosmos e operazioni interne di cleanup non sono endpoint pubblici UI.
 
----
-
 ## Assunzioni di progetto
 
 - La UI è progettata per job relativamente veloci e per il monitoraggio operativo in tempo reale.
@@ -287,8 +267,6 @@ Benefici pratici:
 - Non è previsto uno storico persistente dei job lato frontend dopo refresh completo.
 - Il focus è sull’orchestrazione resiliente dei job asincroni, non sull’archiviazione o gestione storica dei risultati.
 - La persistenza lato backend (Cosmos DB, Blob Storage) è utilizzata per orchestrazione e tracciamento durante l’esecuzione, non come storage permanente per consultazione utente nel lungo periodo.
-
----
 
 
 ## Demo e materiali visivi
@@ -303,8 +281,6 @@ Benefici pratici:
 
 - **Screenshot UI principali**: _[placeholder — inserire schermate login, create job, monitoraggio, download]_
 - **Asset futuri (benchmark, sequence diagram, failure paths)**: _[placeholder — inserire riferimenti]_
-
----
 
 ## Troubleshooting
 
@@ -325,8 +301,6 @@ Benefici pratici:
 
 - **Concorrenza worker e stabilità**
   - In caso di saturazione o errori runtime sotto carico, verificare impostazione `maxConcurrentCalls: 2` in `backend/host.json` (scelta introdotta dopo osservazioni su Application Insights).
-
----
 
 ## Come eseguire il progetto in locale
 
@@ -382,8 +356,6 @@ Il frontend Express espone la UI (porta locale da `PORT`, default `3000`).
 4. Verifica transizioni stato/progresso (realtime o polling fallback).
 5. Scarica output con pulsante dedicato quando lo stato è `done`.
 
----
-
 ## Come fare il deploy da zero
 
 Il flusso ufficiale di provisioning e deploy è nella cartella [infra/](infra/)
@@ -395,8 +367,6 @@ Il flusso ufficiale di provisioning e deploy è nella cartella [infra/](infra/)
 
 Questo README non duplica la guida infrastrutturale: per deploy da zero seguire direttamente [infra/README.md](infra/README.md).
 
----
-
 ## Limiti attuali e sviluppi futuri
 
 Evoluzioni naturali del progetto:
@@ -407,8 +377,6 @@ Evoluzioni naturali del progetto:
 - osservabilità avanzata (metriche business + tracing distribuito approfondito);
 - persistenza storica job lato frontend o datastore dedicato per consultazione lunga;
 - evoluzione da flusso orientato a job veloci verso piattaforma operativa più completa.
-
----
 
 ## Licenza e crediti
 
