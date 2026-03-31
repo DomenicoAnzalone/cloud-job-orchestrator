@@ -102,8 +102,15 @@ Componenti principali presenti nel repository:
 9. **Cleanup timer**
    - Funzione schedulata ogni 15 minuti per rimuovere job completati oltre soglia temporale e blob associati.
 
-**Placeholder immagine architetturale:**
-> _[Da sostituire con diagramma architetturale ufficiale del sistema.]_
+10. **Application Insights (observability)**
+   - Raccolta di log, metriche e trace per monitoraggio runtime e debugging.
+   - Utilizzato per analisi errori, performance e comportamento del sistema.
+
+### Cloud Job Orchestrator – High-Level Architecture
+
+<p align="center">
+  <img src="assets/cjo-architecture-diagram.png" alt="Cloud Job Orchestrator Architecture Diagram" width="900"/>
+</p>
 
 ## Workflow end-to-end
 
@@ -272,13 +279,6 @@ Benefici pratici:
 ## Demo e materiali visivi
 
 - **Video demo**: _[placeholder — inserire link video demo]_
-
-### Cloud Job Orchestrator – High-Level Architecture
-
-<p align="center">
-  <img src="assets/cjo-architecture-diagram.png" alt="Cloud Job Orchestrator Architecture Diagram" width="900"/>
-</p>
-
 - **Screenshot UI principali**: _[placeholder — inserire schermate login, create job, monitoraggio, download]_
 - **Asset futuri (benchmark, sequence diagram, failure paths)**: _[placeholder — inserire riferimenti]_
 
