@@ -294,7 +294,13 @@ Benefici pratici:
 ## Demo e materiali visivi
 
 - **Video demo**: _[placeholder — inserire link video demo]_
-- **Diagramma architetturale**: _[placeholder — inserire immagine architettura]_
+
+### Cloud Job Orchestrator – High-Level Architecture
+
+<p align="center">
+  <img src="assets/cjo-architecture-diagram.png" alt="Cloud Job Orchestrator Architecture Diagram" width="900"/>
+</p>
+
 - **Screenshot UI principali**: _[placeholder — inserire schermate login, create job, monitoraggio, download]_
 - **Asset futuri (benchmark, sequence diagram, failure paths)**: _[placeholder — inserire riferimenti]_
 
