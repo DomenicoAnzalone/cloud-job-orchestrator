@@ -1,3 +1,36 @@
+<p align="center">
+  <!-- Sostituisci con il tuo logo -->
+  <img src="assets/logo.png" alt="Cloud Job Orchestrator Logo" width="110"/>
+</p>
+
+<h1 align="center">Cloud Job Orchestrator</h1>
+
+<p align="center">
+  Sistema <b>event-driven</b> per orchestrazione resiliente di job asincroni su Azure
+</p>
+
+<p align="center">
+  <i>
+    Decoupled, scalable and resilient architecture for asynchronous workloads
+  </i>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/architecture-event--driven-blue?style=flat" />
+  <img src="https://img.shields.io/badge/cloud-Azure-0078D4?style=flat&logo=microsoftazure&logoColor=white" />
+  <img src="https://img.shields.io/badge/status-demo--ready-green?style=flat" />
+  <img src="https://img.shields.io/badge/license-Apache%202.0-blue?style=flat" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/backend-Azure%20Functions-512BD4?style=flat&logo=azurefunctions&logoColor=white" />
+  <img src="https://img.shields.io/badge/frontend-Node.js-339933?style=flat&logo=node.js&logoColor=white" />
+  <img src="https://img.shields.io/badge/database-Cosmos%20DB-2E8B57?style=flat" />
+  <img src="https://img.shields.io/badge/messaging-Service%20Bus-FF6F00?style=flat" />
+</p>
+
+---
+
 ## Indice
 
 - [Cloud Job Orchestrator](#cloud-job-orchestrator)
@@ -10,10 +43,10 @@
 - [Perché questa architettura](#perché-questa-architettura)
 - [Sicurezza e confini](#sicurezza-e-confini)
 - [Assunzioni di progetto](#assunzioni-di-progetto)
+- [Demo e materiali visivi](#demo-e-materiali-visivi)
 - [Troubleshooting](#troubleshooting)
 - [Come eseguire il progetto in locale](#come-eseguire-il-progetto-in-locale)
 - [Come fare il deploy da zero](#come-fare-il-deploy-da-zero)
-- [Demo e materiali visivi](#demo-e-materiali-visivi)
 - [Limiti attuali e sviluppi futuri](#limiti-attuali-e-sviluppi-futuri)
 - [Licenza e crediti](#licenza-e-crediti)
 
