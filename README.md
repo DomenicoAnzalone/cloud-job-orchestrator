@@ -75,36 +75,36 @@ I due job attuali (**background removal** e **image upscale**) sono esempi concr
 Componenti principali presenti nel repository:
 
 1. **Frontend Web App (Express)**
-   - Server Node/Express che serve l’interfaccia e la configurazione runtime (`/config.js`).
-   - UI per autenticazione, creazione job, monitoraggio stato e download output.
+  - Server Node/Express che serve l’interfaccia e la configurazione runtime (`/config.js`).
+  - UI per autenticazione, creazione job, monitoraggio stato e download output.
 
 2. **Backend API (Azure Functions HTTP)**
-   - Endpoint di creazione job (`POST /jobs`), stato (`GET /jobs/{id}`), output link (`GET /jobs/{id}/output-link`) e negoziazione realtime (`/realtime/negotiate`).
+  - Endpoint di creazione job (`POST /jobs`), stato (`GET /jobs/{id}`), output link (`GET /jobs/{id}/output-link`) e negoziazione realtime (`/realtime/negotiate`).
 
 3. **Worker (Azure Functions Service Bus trigger)**
-   - Consuma messaggi dalla coda `q-jobs`, esegue elaborazione, aggiorna stato, pubblica eventi realtime.
+  - Consuma messaggi dalla coda `q-jobs`, esegue elaborazione, aggiorna stato, pubblica eventi realtime.
 
 4. **Cosmos DB (source of truth)**
-   - Stato job e metadati (status, progress, attempts, input/output reference, error, timestamps).
+  - Stato job e metadati (status, progress, attempts, input/output reference, error, timestamps).
 
 5. **Azure Service Bus**
-   - Coda di disaccoppiamento tra intake e execution, con semantica at-least-once.
+  - Coda di disaccoppiamento tra intake e execution, con semantica at-least-once.
 
 6. **Blob Storage**
-   - Persistenza dei file input/output e generazione link temporanei di download.
+  - Persistenza dei file input/output e generazione link temporanei di download.
 
 7. **Azure SignalR**
-   - Push realtime eventi di stato/progresso/log verso il client associato all’utente.
+  - Push realtime eventi di stato/progresso/log verso il client associato all’utente.
 
 8. **Microsoft Entra ID**
-   - Autenticazione e validazione token JWT per accesso alle API.
+  - Autenticazione e validazione token JWT per accesso alle API.
 
 9. **Cleanup timer**
-   - Funzione schedulata ogni 15 minuti per rimuovere job completati oltre soglia temporale e blob associati.
+  - Funzione schedulata ogni 15 minuti per rimuovere job completati oltre soglia temporale e blob associati.
 
 10. **Application Insights (observability)**
-   - Raccolta di log, metriche e trace per monitoraggio runtime e debugging.
-   - Utilizzato per analisi errori, performance e comportamento del sistema.
+  - Raccolta di log, metriche e trace per monitoraggio runtime e debugging.
+  - Utilizzato per analisi errori, performance e comportamento del sistema.
 
 ### Cloud Job Orchestrator – High-Level Architecture
 
