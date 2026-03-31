@@ -1,14 +1,34 @@
-const redirectUri =
-  location.hostname === "localhost"
-    ? "http://localhost:5500"
-    : window.location.origin;
+const redirectUri = window.location.origin;
+
+function getAuthConfig() {
+  const config = window.APP_CONFIG || {};
+
+  const clientId = config.AZURE_AD_CLIENT_ID;
+  const tenantId = config.AZURE_AD_TENANT_ID;
+  const apiAudience = config.AZURE_AD_API_AUDIENCE;
+
+  if (!clientId || !tenantId || !apiAudience) {
+    throw new Error(
+      "Missing Azure AD config. Check AZURE_AD_CLIENT_ID, AZURE_AD_TENANT_ID and AZURE_AD_API_AUDIENCE."
+    );
+  }
+
+  return {
+    clientId,
+    authority: config.AZURE_AD_AUTHORITY || `https://login.microsoftonline.com/${tenantId}`,
+    apiScope: config.AZURE_AD_API_SCOPE || `${apiAudience}/access_as_user`
+  };
+}
+
+const authConfig = getAuthConfig();
+
 
 const msalConfig = {
   auth: {
-    clientId: "325c2c85-0dd0-4593-b448-eecd4d268881",
-    authority: "https://login.microsoftonline.com/1ff1ab6f-5116-43af-a48b-d8da1301df40",
-    redirectUri: redirectUri
-  } 
+    clientId: authConfig.clientId,
+    authority: authConfig.authority,
+    redirectUri
+  }
 };
 
 const msalInstance = new msal.PublicClientApplication(msalConfig);
@@ -42,7 +62,7 @@ async function getAccessToken() {
   }
 
   const response = await msalInstance.acquireTokenSilent({
-    scopes: ["api://52836a8b-6649-49ac-acbe-53caeccd542f/access_as_user"],
+    scopes: [authConfig.apiScope],
     account: account
   });
 
