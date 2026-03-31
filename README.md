@@ -70,10 +70,6 @@ Questo approccio abilita:
 Il caso d’uso implementato è l’orchestrazione di job immagine asincroni con output persistito su Blob Storage, monitoraggio stato in UI e notifiche realtime per utente/job.
 I due job attuali (**background removal** e **image upscale**) sono esempi concreti di una pipeline più generale: il focus principale del progetto è l’architettura che li supporta, non il singolo algoritmo di elaborazione.
 
-
-
-
-
 ## Architettura ad alto livello
 
 Componenti principali presenti nel repository:
@@ -110,25 +106,25 @@ Componenti principali presenti nel repository:
 ## Workflow end-to-end
 
 1. **Creazione job da UI**
-   - Utente autenticato seleziona tipo job e file immagine.
+    - Utente autenticato seleziona tipo job e file immagine.
 2. **Validazione API**
-   - Verifica token, tipo job supportato, presenza file.
+    - Verifica token, tipo job supportato, presenza file.
 3. **Upload input**
-   - Il file viene caricato nel container Blob input.
+    - Il file viene caricato nel container Blob input.
 4. **Persistenza stato iniziale**
-   - Viene creato un documento job in Cosmos DB (stato `queued`).
+    - Viene creato un documento job in Cosmos DB (stato `queued`).
 5. **Enqueue**
-   - API pubblica su Service Bus un messaggio leggero (claim-check: identificativi, non payload completo).
+    - API pubblica su Service Bus un messaggio leggero (claim-check: identificativi, non payload completo).
 6. **Processing worker**
-   - Worker legge messaggio, carica input da Blob, applica trasformazione, carica output su Blob.
+    - Worker legge messaggio, carica input da Blob, applica trasformazione, carica output su Blob.
 7. **Aggiornamento stato**
-   - Cosmos viene aggiornato progressivamente (`processing` → `done` o `failed`, con progress/attempts/error).
+    - Cosmos viene aggiornato progressivamente (`processing` → `done` o `failed`, con progress/attempts/error).
 8. **Notifiche realtime**
-   - Eventi SignalR inviati al client utente (`status`, `progress`, `log`, `completed`).
+    - Eventi SignalR inviati al client utente (`status`, `progress`, `log`, `completed`).
 9. **Fallback polling**
-   - Se realtime non disponibile, frontend continua monitoraggio via polling API.
+    - Se realtime non disponibile, frontend continua monitoraggio via polling API.
 10. **Download finale**
-   - UI richiede `output-link`; backend genera URL SAS temporaneo per scaricare l’output.
+    - UI richiede `output-link`; backend genera URL SAS temporaneo per scaricare l’output.
 
 ## Funzionalità principali
 
@@ -147,43 +143,36 @@ Capacità effettivamente implementate:
 ### Job disponibili
 
 1. **background_removal**
-   - Usa `rembg` con sessione riutilizzabile lato worker.
-   - L’immagine viene convertita e salvata in **PNG** (`image/png`).
+    - Usa `rembg` con sessione riutilizzabile lato worker.
+    - L’immagine viene convertita e salvata in **PNG** (`image/png`).
 
 2. **image_upscale**
-   - Usa Pillow con resize LANCZOS (attualmente fattore 2x).
-   - Tenta di preservare il formato originale quando disponibile.
+    - Usa Pillow con resize LANCZOS (attualmente fattore 2x).
+    - Tenta di preservare il formato originale quando disponibile.
 
 ## Servizi Azure usati e perché
 
 - **Azure Functions**
   - Ruolo: API HTTP, worker queue-trigger, timer di cleanup.
   - Perché: modello serverless, separazione naturale dei trigger e scaling gestito.
-
 - **Azure Service Bus**
   - Ruolo: coda job `q-jobs`.
   - Perché: disaccoppia intake da execution, bufferizza picchi, abilita retry at-least-once.
-
 - **Azure Cosmos DB**
   - Ruolo: stato e metadati job.
   - Perché: datastore operativo a bassa latenza, usato come **source of truth**.
-
 - **Azure Blob Storage**
   - Ruolo: persistenza input/output e download via SAS temporaneo.
   - Perché: storage adatto a payload binari, separato dai metadati.
-
 - **Azure App Service / Web App**
   - Ruolo: hosting frontend Express.
   - Perché: delivery semplice della UI con configurazione via app settings.
-
 - **Azure SignalR Service**
   - Ruolo: push realtime eventi job a utenti specifici.
   - Perché: aggiornamenti near-real-time senza polling continuo, con fallback quando necessario.
-
 - **Microsoft Entra ID**
   - Ruolo: identity provider per login e protezione API via bearer token.
   - Perché: gestione centralizzata identità/claims in contesto Azure.
-
 - **Application Insights**
   - Ruolo: telemetria e osservabilità runtime.
   - Perché: supporta tuning operativo (es. concorrenza worker, analisi failure/performance).
@@ -249,16 +238,12 @@ Benefici pratici:
 
 - **Autenticazione/autorizzazione**
   - Le API applicative richiedono bearer token Entra ID e validano audience/issuer/claims (`oid`, `tid`).
-
 - **Protezione API**
   - Anche se i trigger sono configurati `auth_level=ANONYMOUS`, la protezione applicativa è implementata nel codice con validazione token.
-
 - **Accesso ai Blob**
   - I container input/output sono privati (`publicAccess: None`) e i download sono esposti tramite link SAS con TTL breve.
-
 - **Uso di Entra ID**
   - Frontend acquisisce token via MSAL; backend valida JWT contro JWKS tenant-specifica.
-
 - **Superficie non esposta**
   - Worker Service Bus, accesso diretto a Cosmos e operazioni interne di cleanup non sono endpoint pubblici UI.
 
@@ -281,19 +266,14 @@ Benefici pratici:
 
 - **Primo avvio frontend più lento**
   - Il server Express può richiedere tempo iniziale di warm-up.
-
 - **Primo avvio Functions più lento**
   - Cold start + caricamento runtime/librerie (in particolare `rembg`) può aumentare latenza iniziale.
-
 - **Latenza demo intenzionale**
   - Il worker può introdurre ritardo configurabile (`WORKER_DELAY_SECONDS`) per visualizzare meglio le transizioni in demo.
-
 - **Login/token issues**
   - Verificare coerenza configurazioni Entra ID: tenant, client ID, audience, scope e app registration.
-
 - **Deploy/config issues**
   - Usare `infra/README.md` e script `infra/` per diagnosi (parametri, app settings, prerequisiti).
-
 - **Concorrenza worker e stabilità**
   - In caso di saturazione o errori runtime sotto carico, verificare impostazione `maxConcurrentCalls: 2` in `backend/host.json` (scelta introdotta dopo osservazioni su Application Insights).
 

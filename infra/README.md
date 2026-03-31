@@ -1,38 +1,31 @@
 # Infrastructure - Cloud Job Orchestrator
 
-## 1. Overview
+## 1. Panoramica
+Questa cartella contiene il flusso di provisioning infrastrutturale Azure del progetto.
 
-This folder contains the Azure infrastructure provisioning flow for the project.
+File rilevanti:
+- `infra/deploy.sh`: crea/aggiorna Resource Group, valida template Bicep, opzionalmente esegue `what-if`, poi deploya l'infrastruttura.
+- `infra/bicep/main.bicep`: definizione IaC delle risorse Azure.
+- `infra/bicep/parameters.json` e `infra/bicep/parameters.test.json`: valori parametro di esempio.
+- `infra/setup-env.sh`: legge gli app settings da Function App/Web App e stampa variabili utili per `.env` e `backend/local.settings.json`.
 
-Relevant files:
+## 2. Prerequisiti
+Permessi Azure richiesti:
+- Permesso di creare risorse nel subscription/resource group target.
+- Permesso di creare role assignment (il template crea assegnazioni RBAC).
 
-* `infra/deploy.sh`: creates/updates the Resource Group, validates the Bicep template, optionally runs `what-if`, then deploys the infrastructure.
-* `infra/bicep/main.bicep`: IaC definition of Azure resources.
-* `infra/bicep/parameters.json` and `infra/bicep/parameters.test.json`: example parameter values.
-* `infra/setup-env.sh`: reads app settings from Function App/Web App and prints useful variables for `.env` and `backend/local.settings.json`.
+Tool richiesti (obbligatori perché usati dagli script):
+- `bash`
+- `az` (Azure CLI)
+- `jq`
 
-## 2. Prerequisites
+Tool aggiuntivi necessari per deploy completo applicativo:
+- `zip` (per creare pacchetti deployabili)
+- `python3` + `pip` (backend Azure Functions)
+- `node` + `npm` (frontend Node/Express)
 
-Required Azure permissions:
-
-* Permission to create resources in the target subscription/resource group.
-* Permission to create role assignments (the template creates RBAC assignments).
-
-Required tools (mandatory because used by scripts):
-
-* `bash`
-* `az` (Azure CLI)
-* `jq`
-
-Additional tools required for full application deployment:
-
-* `zip` (to create deployable packages)
-* `python3` + `pip` (backend Azure Functions)
-* `node` + `npm` (frontend Node/Express)
-
-## 3. Required tools installation
-
-Install tools based on your OS. Verify they are available in PATH:
+## 3. Installazione tool richiesti
+Installare i tool in base al proprio OS. Verificare che siano disponibili nel PATH:
 
 ```bash
 az version
@@ -42,101 +35,91 @@ python3 --version
 npm --version
 ```
 
-## 4. Azure authentication
-
-Login and select the subscription:
+## 4. Autenticazione Azure
+Eseguire login e selezionare la subscription:
 
 ```bash
 az login
-az account set --subscription "<subscription-id-or-name>"
+az account set --subscription "<subscription-id-o-name>"
 az account show --query id -o tsv
 ```
 
-## 5. Project configuration
+## 5. Configurazione progetto
 
-### 5.1 Infrastructure parameters file
-
-Create an environment-specific parameter file:
+### 5.1 File parametri infrastruttura
+Creare un file parametri dedicato ambiente:
 
 ```bash
 cp infra/bicep/parameters.json infra/bicep/parameters.<env>.json
 ```
 
-Update at least:
+Aggiornare nel file almeno:
+- `environment`
+- `location`
+- `namePrefix`
+- `azureAdTenantId`
+- `azureAdClientId`
+- `azureAdApiAudience`
+- `azureAdApiScope`
 
-* `environment`
-* `location`
-* `namePrefix`
-* `azureAdTenantId`
-* `azureAdClientId`
-* `azureAdApiAudience`
-* `azureAdApiScope`
+I placeholder `<set-manually>` presenti nei parametri non sono validi in produzione: vanno sostituiti.
 
-Placeholders `<set-manually>` in parameters are not valid for production and must be replaced.
-
-### 5.2 Backend local config
-
-Create Functions local file:
+### 5.2 Config locale backend
+Creare file locale Functions:
 
 ```bash
 cp backend/local.settings.example.json backend/local.settings.json
 ```
 
-### 5.3 Frontend local config
-
-Create local environment variables:
+### 5.3 Config locale frontend
+Creare variabili ambiente locali:
 
 ```bash
 cp .env.example .env
 ```
 
-## 6. Environment variables reference
-
-The following variables are used by backend/frontend code or set by Bicep in app settings.
+## 6. Riferimento variabili ambiente
+Le variabili seguenti sono usate dal codice backend/frontend o impostate da Bicep negli app settings.
 
 ### Runtime/backend
-
-* `FUNCTIONS_WORKER_RUNTIME`: Functions runtime (python).
-* `AzureWebJobsStorage`: storage used by Functions runtime.
-* `DEPLOYMENT_STORAGE_CONNECTION_STRING`: additional storage for deploy/artifacts.
-* `SERVICEBUS_CONNECTION`: Service Bus connection used by triggers and producers.
-* `SERVICEBUS_JOBS_QUEUE`: job queue (default `q-jobs`).
-* `COSMOS_ENDPOINT`: Cosmos DB account endpoint.
-* `COSMOS_KEY`: Cosmos DB account key.
-* `COSMOS_DB`: Cosmos database (default `cjo`).
-* `COSMOS_CONTAINER`: Cosmos container (default `jobs`).
-* `BLOB_CONNECTION`: Blob Storage connection.
-* `BLOB_ACCOUNT_URL`: blob account URL (used for SAS/output links).
-* `BLOB_INPUT_CONTAINER`: input container (default `input`).
-* `BLOB_OUTPUT_CONTAINER`: output container (default `output`).
-* `OUTPUT_LINK_TTL_MINUTES`: output download link TTL.
-* `SIGNALR_CONNECTION_STRING`: Azure SignalR connection.
-* `SIGNALR_HUB_NAME`: SignalR hub (default `jobs`).
-* `WORKER_DELAY_SECONDS`: artificial worker delay (demo/testing).
+- `FUNCTIONS_WORKER_RUNTIME`: runtime Functions (python).
+- `AzureWebJobsStorage`: storage usato dal runtime Functions.
+- `DEPLOYMENT_STORAGE_CONNECTION_STRING`: storage aggiuntivo per operazioni di deploy/artifacts.
+- `SERVICEBUS_CONNECTION`: connessione Service Bus usata da trigger e producer.
+- `SERVICEBUS_JOBS_QUEUE`: coda job (default `q-jobs`).
+- `COSMOS_ENDPOINT`: endpoint account Cosmos DB.
+- `COSMOS_KEY`: key account Cosmos DB.
+- `COSMOS_DB`: database Cosmos (default `cjo`).
+- `COSMOS_CONTAINER`: container Cosmos (default `jobs`).
+- `BLOB_CONNECTION`: connessione Blob Storage.
+- `BLOB_ACCOUNT_URL`: URL account blob (usato per SAS/output link).
+- `BLOB_INPUT_CONTAINER`: container input (default `input`).
+- `BLOB_OUTPUT_CONTAINER`: container output (default `output`).
+- `OUTPUT_LINK_TTL_MINUTES`: TTL link download output.
+- `SIGNALR_CONNECTION_STRING`: connessione Azure SignalR.
+- `SIGNALR_HUB_NAME`: hub SignalR (default `jobs`).
+- `WORKER_DELAY_SECONDS`: ritardo artificiale worker (demo/testing).
 
 ### Auth (Entra ID / Azure AD)
-
-* `AZURE_AD_TENANT_ID`: tenant ID.
-* `AZURE_AD_CLIENT_ID`: frontend app client ID used by MSAL.
-* `AZURE_AD_API_AUDIENCE`: backend API audience (`api://...`).
-* `AZURE_AD_API_SCOPE`: OAuth scope required by frontend.
-* `AZURE_AD_AUTHORITY`: tenant login authority.
+- `AZURE_AD_TENANT_ID`: tenant ID.
+- `AZURE_AD_CLIENT_ID`: client ID app frontend usata da MSAL.
+- `AZURE_AD_API_AUDIENCE`: audience API backend (`api://...`).
+- `AZURE_AD_API_SCOPE`: scope OAuth richiesto dal frontend.
+- `AZURE_AD_AUTHORITY`: authority tenant login.
 
 ### Frontend
-
-* `FRONTEND_API_BASE_URL`: API base URL.
-* `API_BASE_URL`: API base URL compatibility alias.
-* `CJO_API_BASE_URL`: API base URL compatibility alias.
-* `PORT`: Express frontend server port.
+- `FRONTEND_API_BASE_URL`: URL base API.
+- `API_BASE_URL`: alias compatibilità API base URL.
+- `CJO_API_BASE_URL`: alias compatibilità API base URL.
+- `PORT`: porta server Express frontend.
 
 ## 7. Deployment
 
-### 7.1 Validation / what-if (supported)
+### 7.1 Validazione / what-if (supportato)
+Lo script `infra/deploy.sh` esegue sempre `validate` prima del deploy.
+Per aggiungere simulazione modifiche usare `--what-if`.
 
-The script `infra/deploy.sh` always runs `validate` before deployment.
-To simulate changes use `--what-if`.
-
-Example:
+Esempio:
 
 ```bash
 chmod +x infra/deploy.sh infra/setup-env.sh
@@ -150,9 +133,8 @@ chmod +x infra/deploy.sh infra/setup-env.sh
   --what-if
 ```
 
-### 7.2 Actual infrastructure deployment
-
-Example without what-if:
+### 7.2 Deploy reale infrastruttura
+Esempio senza what-if:
 
 ```bash
 ./infra/deploy.sh \
@@ -163,11 +145,10 @@ Example without what-if:
   --params infra/bicep/parameters.dev.json
 ```
 
-The script creates/updates the Resource Group, then deploys `infra/bicep/main.bicep`.
+Lo script crea/aggiorna il Resource Group, poi deploya `infra/bicep/main.bicep`.
 
-### 7.3 Backend application deployment (Function App)
-
-After provisioning, backend code must also be published (the template only creates infrastructure + app settings).
+### 7.3 Deploy applicazione backend (Function App)
+Dopo il provisioning va pubblicato anche il codice backend (il template crea solo infrastruttura + app settings).
 
 ```bash
 TMP_DIR="$(mktemp -d)"
@@ -184,9 +165,8 @@ az functionapp deployment source config-zip \
 cd - >/dev/null
 ```
 
-### 7.4 Frontend application deployment (Web App)
-
-After provisioning, frontend code must also be published.
+### 7.4 Deploy applicazione frontend (Web App)
+Dopo il provisioning va pubblicato anche il codice frontend.
 
 ```bash
 TMP_DIR="$(mktemp -d)"
@@ -204,63 +184,55 @@ az webapp deploy \
 cd - >/dev/null
 ```
 
-## 8. `deploy.sh` parameters explanation
+## 8. Spiegazione parametri `deploy.sh`
+Parametri supportati:
+- `-g, --resource-group` (obbligatorio): nome Resource Group target.
+- `-l, --location` (obbligatorio): region Azure (es. `eastus`).
+- `-p, --prefix` (obbligatorio): prefisso naming, regex `^[a-z0-9]{3,12}$`.
+- `-e, --environment` (opzionale, default `dev`): label ambiente, regex `^[a-z0-9-]{2,15}$`.
+- `--subscription` (opzionale): subscription ID o nome.
+- `--params` (opzionale): file parametri Bicep (default `infra/bicep/parameters.json`).
+- `--what-if` (opzionale): esegue ARM what-if prima del create.
+- `-h, --help`: help.
 
-Supported parameters:
+## 9. Output attesi
+A fine deploy `infra/deploy.sh` stampa:
+- Function App name
+- Function API URL (`.../api`)
+- Web App name
+- Web App URL
+- Storage Account name
+- Service Bus Namespace name
+- Cosmos DB Account name
+- SignalR Service name
 
-* `-g, --resource-group` (required): target Resource Group name.
-* `-l, --location` (required): Azure region (e.g. `eastus`).
-* `-p, --prefix` (required): naming prefix, regex `^[a-z0-9]{3,12}$`.
-* `-e, --environment` (optional, default `dev`): environment label, regex `^[a-z0-9-]{2,15}$`.
-* `--subscription` (optional): subscription ID or name.
-* `--params` (optional): Bicep parameter file (default `infra/bicep/parameters.json`).
-* `--what-if` (optional): runs ARM what-if before create.
-* `-h, --help`: help.
+Questi output servono per i deploy applicativi (`--name`) e per la verifica finale.
 
-## 9. Expected outputs
+## 10. Verifica
 
-At the end of deployment, `infra/deploy.sh` prints:
-
-* Function App name
-* Function API URL (`.../api`)
-* Web App name
-* Web App URL
-* Storage Account name
-* Service Bus Namespace name
-* Cosmos DB Account name
-* SignalR Service name
-
-These outputs are required for application deployment (`--name`) and final verification.
-
-## 10. Verification
-
-### 10.1 Azure app status check
-
+### 10.1 Verifica stato app Azure
 ```bash
 az functionapp show -g rg-cjo-dev -n <function-app-name-output> --query "state" -o tsv
 az webapp show -g rg-cjo-dev -n <web-app-name-output> --query "state" -o tsv
 ```
 
-### 10.2 Backend API check
-
+### 10.2 Verifica API backend
 ```bash
 curl -i "https://<function-app-name-output>.azurewebsites.net/api/jobs/non-existent-id"
 ```
 
-Expected result: HTTP response from endpoint (typically `404` if job does not exist).
+Risultato atteso: risposta HTTP dall'endpoint (tipicamente `404` se job non esiste).
 
-### 10.3 Frontend check
-
-Open in browser:
+### 10.3 Verifica frontend
+Aprire in browser:
 
 ```text
 https://<web-app-name-output>.azurewebsites.net
 ```
 
-The web app should respond and serve the UI.
+La web app deve rispondere e servire la UI.
 
-### 10.4 Extract real variables from app settings
-
+### 10.4 Estrazione variabili reali dagli app settings
 ```bash
 ./infra/setup-env.sh \
   --resource-group rg-cjo-dev \
@@ -268,39 +240,36 @@ The web app should respond and serve the UI.
   --web-app <web-app-name-output>
 ```
 
-The script prints values to copy into `.env` and `backend/local.settings.json`.
+Lo script stampa valori da copiare in `.env` e `backend/local.settings.json`.
 
 ## 11. Cleanup
-
-To remove all created resources:
+Per rimuovere tutte le risorse create:
 
 ```bash
 az group delete --name rg-cjo-dev --yes --no-wait
 ```
 
-## 12. Important notes
-
-* Required shell: `bash` (scripts use `#!/usr/bin/env bash` and `set -euo pipefail`).
-* `jq` is mandatory: both `deploy.sh` and `setup-env.sh` use it directly.
-* `deploy.sh` fails if `az account show` is not authenticated.
-* Entra ID settings (`azureAd*`) are not auto-created: they must be manually set in the parameter file.
-* The template sets `storage.location` to `norwayeast`; therefore storage does not follow the CLI `location` parameter.
+## 12. Note importanti
+- Shell richiesta: `bash` (gli script usano `#!/usr/bin/env bash` e opzioni `set -euo pipefail`).
+- `jq` è obbligatorio: `deploy.sh` e `setup-env.sh` lo usano direttamente.
+- `deploy.sh` fallisce se `az account show` non è autenticato.
+- Le impostazioni Entra ID (`azureAd*`) non vengono auto-create: devono essere inserite manualmente nel file parametri.
+- Il template imposta `storage.location` a `norwayeast`; quindi lo storage non segue il parametro `location` passato da CLI.
 
 ## 13. Troubleshooting
+Solo problemi osservabili dal codice/script:
 
-Only issues observable from code/scripts:
+- Errore `--prefix must match ^[a-z0-9]{3,12}$`:
+  usare un prefisso minuscolo alfanumerico lungo 3-12 caratteri.
 
-* Error `--prefix must match ^[a-z0-9]{3,12}$`:
-  use a lowercase alphanumeric prefix of length 3–12.
+- Errore `--environment must match ^[a-z0-9-]{2,15}$`:
+  usare environment lowercase con eventuale `-`, lungo 2-15 caratteri.
 
-* Error `--environment must match ^[a-z0-9-]{2,15}$`:
-  use lowercase environment with optional `-`, length 2–15.
+- Errore `Azure CLI is not logged in. Run: az login`:
+  rieseguire `az login` prima di `infra/deploy.sh` / `infra/setup-env.sh`.
 
-* Error `Azure CLI is not logged in. Run: az login`:
-  run `az login` again before `infra/deploy.sh` / `infra/setup-env.sh`.
+- Errore `jq is required ...` o `Required command not found: jq`:
+  installare `jq` e rilanciare.
 
-* Error `jq is required ...` or `Required command not found: jq`:
-  install `jq` and retry.
-
-* Deployment auth/AAD runtime errors:
-  verify consistency between `AZURE_AD_API_AUDIENCE`, `AZURE_AD_API_SCOPE`, `AZURE_AD_CLIENT_ID`, `AZURE_AD_TENANT_ID` and app registrations configured in the tenant.
+- Errori deploy auth/AAD in runtime:
+  verificare coerenza tra `AZURE_AD_API_AUDIENCE`, `AZURE_AD_API_SCOPE`, `AZURE_AD_CLIENT_ID`, `AZURE_AD_TENANT_ID` e app registration configurate in tenant.
