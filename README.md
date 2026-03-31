@@ -190,7 +190,7 @@ Esempio sintetico di documento job in Cosmos DB:
   "inputRef": { "container": "input", "blobName": "<pk>/<jobId>/image.jpg" },
   "outputRef": { "container": "output", "blobName": "<pk>/<jobId>/image.png" },
   "error": null,
-  "parameters": { "fail": false }
+  "parameters": { ... }
 }
 ```
 
@@ -249,10 +249,21 @@ Benefici pratici:
 
 ## Assunzioni di progetto
 
-- La UI è pensata per job relativamente veloci e monitoraggio operativo immediato.
-- Lo stato dei job non è mantenuto come storico persistente lato frontend dopo refresh completo.
-- Il focus è sull’orchestrazione resiliente dei job, non su una piattaforma MLOps completa.
-- Il flusso corrente è ottimizzato per operatività rapida, non come archivio storico esteso.
+- La UI è progettata per job relativamente veloci e per il monitoraggio operativo in tempo reale.
+- Il sistema è orientato a un utilizzo one-shot: creazione del job, attesa del risultato e download, senza necessità di consultazione successiva.
+- Non è previsto uno storico persistente dei job lato frontend dopo refresh completo.
+- Il focus è sull’orchestrazione resiliente dei job asincroni, non sull’archiviazione o gestione storica dei risultati.
+- La persistenza lato backend (Cosmos DB, Blob Storage) è utilizzata per orchestrazione e tracciamento durante l’esecuzione, non come storage permanente per consultazione utente nel lungo periodo.
+
+---
+
+
+## Demo e materiali visivi
+
+- **Video demo**: _[placeholder — inserire link video demo]_
+- **Diagramma architetturale**: _[placeholder — inserire immagine architettura]_
+- **Screenshot UI principali**: _[placeholder — inserire schermate login, create job, monitoraggio, download]_
+- **Asset futuri (benchmark, sequence diagram, failure paths)**: _[placeholder — inserire riferimenti]_
 
 ---
 
@@ -286,7 +297,7 @@ Benefici pratici:
 - Python 3 + pip
 - Node.js + npm
 - Azure CLI (`az`)
-- (per flusso completo) risorse Azure configurate secondo `infra/README.md`
+- Per eseguire il flusso completo con infrastruttura Azure: seguire le istruzioni in [infra/README.md](infra/README.md)
 
 ### 2) Configurazione variabili
 
@@ -336,23 +347,14 @@ Il frontend Express espone la UI (porta locale da `PORT`, default `3000`).
 
 ## Come fare il deploy da zero
 
-Il flusso ufficiale di provisioning e deploy è nella cartella **`infra/`**.
+Il flusso ufficiale di provisioning e deploy è nella cartella [infra/](infra/)
 
 - Provisioning risorse: `infra/deploy.sh` + `infra/bicep/main.bicep`
 - Parametri ambiente: `infra/bicep/parameters*.json`
 - Estrazione variabili runtime: `infra/setup-env.sh`
 - Istruzioni operative complete: **`infra/README.md`**
 
-Questo README non duplica la guida infrastrutturale: per deploy da zero seguire direttamente `infra/README.md`.
-
----
-
-## Demo e materiali visivi
-
-- **Video demo**: _[placeholder — inserire link video demo]_
-- **Diagramma architetturale**: _[placeholder — inserire immagine architettura]_
-- **Screenshot UI principali**: _[placeholder — inserire schermate login, create job, monitoraggio, download]_
-- **Asset futuri (benchmark, sequence diagram, failure paths)**: _[placeholder — inserire riferimenti]_
+Questo README non duplica la guida infrastrutturale: per deploy da zero seguire direttamente [infra/README.md](infra/README.md).
 
 ---
 
@@ -362,8 +364,6 @@ Evoluzioni naturali del progetto:
 
 - supporto a più tipi di input e validazioni avanzate;
 - pipeline di elaborazione più realistica (multi-step, chaining, policy);
-- realtime più robusto (ordering, recovery stateful, reconnection strategy più ampia);
-- processing batch e schedulazioni;
 - multi-tenant completo con isolamento/logica quota;
 - osservabilità avanzata (metriche business + tracing distribuito approfondito);
 - persistenza storica job lato frontend o datastore dedicato per consultazione lunga;
