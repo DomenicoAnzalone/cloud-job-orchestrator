@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/azure-logo.svg" width="70"/>
+  <img src="assets/azure-logo.svg" width="40"/>
 </p>
 
 <h1 align="center">Cloud Job Orchestrator</h1>
