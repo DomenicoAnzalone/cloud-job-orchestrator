@@ -2,10 +2,6 @@
   <img src="assets/logo.png" width="110"/>
 </p>
 
-<p align="center">
-  <img src="assets/azure-logo.svg" width="40"/>
-</p>
-
 <h1 align="center">Cloud Job Orchestrator</h1>
 
 <p align="center">
