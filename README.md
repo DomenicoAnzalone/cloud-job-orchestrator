@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/architecture-event--driven-blue?style=flat" />
   <img src="https://img.shields.io/badge/cloud-Azure-0078D4?style=flat&logo=microsoftazure&logoColor=white" />
   <img src="https://img.shields.io/badge/status-demo--ready-green?style=flat" />
-  <img src="https://img.shields.io/badge/license-Apache%202.0-blue?style=flat" />
+  <img src="https://img.shields.io/badge/license-Unlicense-blue?style=flat" />
 </p>
 
 <p align="center">
@@ -50,7 +50,7 @@
 
 ## Cloud Job Orchestrator
 
-**Cloud Job Orchestrator** è un sistema **event-driven** per l’orchestrazione di job asincroni, non una semplice app di upload + processing.
+**Cloud Job Orchestrator** è un sistema **event-driven** per l’orchestrazione di job asincroni, non la classica app “upload + processing” fatta in modo sincrono.
 
 Il progetto affronta un problema preciso: gestire in modo resiliente job asincroni separando nettamente:
 
@@ -275,7 +275,7 @@ Benefici pratici:
 - **Deploy/config issues**
   - Usare `infra/README.md` e script `infra/` per diagnosi (parametri, app settings, prerequisiti).
 - **Concorrenza worker e stabilità**
-  - In caso di saturazione o errori runtime sotto carico, verificare impostazione `maxConcurrentCalls: 2` in `backend/host.json` (scelta introdotta dopo osservazioni su Application Insights).
+  - In caso di saturazione o errori runtime sotto carico, verificare impostazione `maxConcurrentCalls: 2` in `backend/host.json` scelta introdotta dopo osservazioni su Application Insights (con valori più alti ho visto instabilità su job pesanti).
 
 ## Come eseguire il progetto in locale
 
@@ -355,7 +355,7 @@ Evoluzioni naturali del progetto:
 
 ## Licenza e crediti
 
-- **Licenza**: fare riferimento al file `LICENSE` presente nella root del repository.
+- **Licenza**: Questo progetto è rilasciato sotto Unlicense. Per i dettagli completi, consultare il file `LICENSE`.
 - **Crediti tecnici**:
   - Azure Functions, Service Bus, Cosmos DB, Blob Storage, SignalR, App Service;
   - librerie Python usate nel processing: `rembg`, `Pillow`.
