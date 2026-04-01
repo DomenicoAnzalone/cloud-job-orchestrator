@@ -268,8 +268,6 @@ Benefici pratici:
 
 [![Rimozione background](assets/preview-bg-remove.gif)](assets/video-background-remove.mp4)
 
-- **Screenshot UI principali**: _[placeholder — inserire schermate login, create job, monitoraggio, download]_
-- **Asset futuri (benchmark, sequence diagram, failure paths)**: _[placeholder — inserire riferimenti]_
 
 ## Troubleshooting
 
