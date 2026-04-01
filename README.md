@@ -260,11 +260,11 @@ Benefici pratici:
 
 ### Video demo
 
-**Autenticazione e accesso**
-![Demo autenticazione](assets/video-autenticazione-entra-id.gif)
+**Autenticazione e accesso**  
+[![Guarda video](assets/preview-auth.png)](assets/video-autenticazione-entra-id.mp4)
 
-**Rimozione background**
-![Demo background](assets/video-background-remove.gif)
+**Rimozione background**  
+[![Guarda video](assets/preview-bg.png)](assets/video-background-remove.mp4)
 
 - **Screenshot UI principali**: _[placeholder — inserire schermate login, create job, monitoraggio, download]_
 - **Asset futuri (benchmark, sequence diagram, failure paths)**: _[placeholder — inserire riferimenti]_
