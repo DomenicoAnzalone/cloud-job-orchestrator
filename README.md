@@ -258,7 +258,16 @@ Benefici pratici:
 
 ## Demo e materiali visivi
 
-- **Video demo**: _[placeholder — inserire link video demo]_
+### Video demo
+
+**Autenticazione e accesso**  
+
+[![Autenticazione e accesso](assets/preview-auth.gif)](assets/video-autenticazione-entra-id.mp4)
+
+**Creazione di un Job (background removal)**  
+
+[![Rimozione background](assets/preview-bg-remove.gif)](assets/video-background-remove.mp4)
+
 - **Screenshot UI principali**: _[placeholder — inserire schermate login, create job, monitoraggio, download]_
 - **Asset futuri (benchmark, sequence diagram, failure paths)**: _[placeholder — inserire riferimenti]_
 
