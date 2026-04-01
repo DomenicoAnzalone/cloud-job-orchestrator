@@ -39,7 +39,6 @@
 - [Servizi Azure usati e perché](#servizi-azure-usati-e-perché)
 - [Dettagli di implementazione](#dettagli-di-implementazione)
 - [Perché questa architettura](#perché-questa-architettura)
-- [Sicurezza e confini](#sicurezza-e-confini)
 - [Assunzioni di progetto](#assunzioni-di-progetto)
 - [Demo e materiali visivi](#demo-e-materiali-visivi)
 - [Troubleshooting](#troubleshooting)
@@ -233,19 +232,6 @@ Benefici pratici:
 - **isolamento** dei job e del runtime di elaborazione;
 - **gestione picchi** tramite coda;
 - **riduzione del coupling** tra esperienza utente e tempi reali di processing.
-
-## Sicurezza e confini
-
-- **Autenticazione/autorizzazione**
-  - Le API applicative richiedono bearer token Entra ID e validano audience/issuer/claims (`oid`, `tid`).
-- **Protezione API**
-  - Anche se i trigger sono configurati `auth_level=ANONYMOUS`, la protezione applicativa è implementata nel codice con validazione token.
-- **Accesso ai Blob**
-  - I container input/output sono privati (`publicAccess: None`) e i download sono esposti tramite link SAS con TTL breve.
-- **Uso di Entra ID**
-  - Frontend acquisisce token via MSAL; backend valida JWT contro JWKS tenant-specifica.
-- **Superficie non esposta**
-  - Worker Service Bus, accesso diretto a Cosmos e operazioni interne di cleanup non sono endpoint pubblici UI.
 
 ## Assunzioni di progetto
 
