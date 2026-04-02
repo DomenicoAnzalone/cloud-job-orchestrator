@@ -4,10 +4,10 @@
 Questa cartella contiene il flusso di provisioning infrastrutturale Azure del progetto.
 
 File rilevanti:
-- `infra/deploy.sh`: crea/aggiorna Resource Group, valida template Bicep, opzionalmente esegue `what-if`, poi deploya l'infrastruttura.
-- `infra/bicep/main.bicep`: definizione IaC delle risorse Azure.
-- `infra/bicep/parameters.json` e `infra/bicep/parameters.test.json`: valori parametro di esempio.
-- `infra/setup-env.sh`: legge gli app settings da Function App/Web App e stampa variabili utili per `.env` e `backend/local.settings.json`.
+- `infra/deploy.sh`: crea/aggiorna Resource Group, valida, poi deploya l'infrastruttura.
+- `infra/bicep/main.bicep`: definizione delle risorse Azure.
+- `infra/bicep/parameters.json` e `infra/bicep/parameters.test.json`: valori parametro di esempio (ovviamente da sostituire con quelli reali).
+- `infra/setup-env.sh`: legge gli app settings da Function App/Web App e stampa variabili utili da inserire al posto dei placehlder in `.env` e `backend/local.settings.json`.
 
 ## 2. Prerequisiti
 Permessi Azure richiesti:
@@ -20,7 +20,7 @@ Tool richiesti (obbligatori perché usati dagli script):
 - `jq`
 
 Tool aggiuntivi necessari per deploy completo applicativo:
-- `zip` (per creare pacchetti deployabili)
+- `zip` (per creare pacchetti deployabili, principalmnte per il frontend)
 - `python3` + `pip` (backend Azure Functions)
 - `node` + `npm` (frontend Node/Express)
 
@@ -62,7 +62,7 @@ Aggiornare nel file almeno:
 - `azureAdApiAudience`
 - `azureAdApiScope`
 
-I placeholder `<set-manually>` presenti nei parametri non sono validi in produzione: vanno sostituiti.
+I placeholder `<set-manually>` presenti nei parametri non sono validi in produzione: ovviamente vanno sostituiti.
 
 ### 5.2 Config locale backend
 Creare file locale Functions:
@@ -117,7 +117,6 @@ Le variabili seguenti sono usate dal codice backend/frontend o impostate da Bice
 
 ### 7.1 Validazione / what-if (supportato)
 Lo script `infra/deploy.sh` esegue sempre `validate` prima del deploy.
-Per aggiungere simulazione modifiche usare `--what-if`.
 
 Esempio:
 
@@ -221,7 +220,7 @@ az webapp show -g rg-cjo-dev -n <web-app-name-output> --query "state" -o tsv
 curl -i "https://<function-app-name-output>.azurewebsites.net/api/jobs/non-existent-id"
 ```
 
-Risultato atteso: risposta HTTP dall'endpoint (tipicamente `404` se job non esiste).
+Risultato atteso (se tutto è andato bene): risposta HTTP dall'endpoint (tipicamente `404` se job non esiste).
 
 ### 10.3 Verifica frontend
 Aprire in browser:
@@ -241,35 +240,3 @@ La web app deve rispondere e servire la UI.
 ```
 
 Lo script stampa valori da copiare in `.env` e `backend/local.settings.json`.
-
-## 11. Cleanup
-Per rimuovere tutte le risorse create:
-
-```bash
-az group delete --name rg-cjo-dev --yes --no-wait
-```
-
-## 12. Note importanti
-- Shell richiesta: `bash` (gli script usano `#!/usr/bin/env bash` e opzioni `set -euo pipefail`).
-- `jq` è obbligatorio: `deploy.sh` e `setup-env.sh` lo usano direttamente.
-- `deploy.sh` fallisce se `az account show` non è autenticato.
-- Le impostazioni Entra ID (`azureAd*`) non vengono auto-create: devono essere inserite manualmente nel file parametri.
-- Il template imposta `storage.location` a `norwayeast`; quindi lo storage non segue il parametro `location` passato da CLI.
-
-## 13. Troubleshooting
-Solo problemi osservabili dal codice/script:
-
-- Errore `--prefix must match ^[a-z0-9]{3,12}$`:
-  usare un prefisso minuscolo alfanumerico lungo 3-12 caratteri.
-
-- Errore `--environment must match ^[a-z0-9-]{2,15}$`:
-  usare environment lowercase con eventuale `-`, lungo 2-15 caratteri.
-
-- Errore `Azure CLI is not logged in. Run: az login`:
-  rieseguire `az login` prima di `infra/deploy.sh` / `infra/setup-env.sh`.
-
-- Errore `jq is required ...` o `Required command not found: jq`:
-  installare `jq` e rilanciare.
-
-- Errori deploy auth/AAD in runtime:
-  verificare coerenza tra `AZURE_AD_API_AUDIENCE`, `AZURE_AD_API_SCOPE`, `AZURE_AD_CLIENT_ID`, `AZURE_AD_TENANT_ID` e app registration configurate in tenant.
