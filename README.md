@@ -244,6 +244,9 @@ Practical benefits:
 
 ## Demo and Visual Materials
 
+**Slide della presentazione**
+[Cloud Job Orchestrator – Presentazione](assets/Cloud Job Orchestrator_Demo_ Presentation.pdf)
+
 ### Video Demo
 
 **Authentication and access**  
