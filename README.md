@@ -5,7 +5,7 @@
 <h1 align="center">Cloud Job Orchestrator</h1>
 
 <p align="center">
-  Sistema <b>event-driven</b> per orchestrazione resiliente di job asincroni su Azure
+  <b>Event-driven</b> system for resilient orchestration of asynchronous jobs on Azure
 </p>
 
 <p align="center">
@@ -29,72 +29,72 @@
   <img src="https://img.shields.io/badge/messaging-Service%20Bus-FF6F00?style=flat" />
 </p>
 
-## Indice
+## Table of Contents
 
 - [Cloud Job Orchestrator](#cloud-job-orchestrator)
-- [Architettura ad alto livello](#architettura-ad-alto-livello)
-- [Workflow end-to-end](#workflow-end-to-end)
-- [Funzionalità principali](#funzionalità-principali)
-  - [Job disponibili](#job-disponibili)
-- [Servizi Azure usati e perché](#servizi-azure-usati-e-perché)
-- [Dettagli di implementazione](#dettagli-di-implementazione)
-- [Perché questa architettura](#perché-questa-architettura)
-- [Assunzioni di progetto](#assunzioni-di-progetto)
-- [Demo e materiali visivi](#demo-e-materiali-visivi)
+- [High-Level Architecture](#high-level-architecture)
+- [End-to-End Workflow](#end-to-end-workflow)
+- [Main Features](#main-features)
+  - [Available Jobs](#available-jobs)
+- [Azure Services Used and Why](#azure-services-used-and-why)
+- [Implementation Details](#implementation-details)
+- [Why This Architecture](#why-this-architecture)
+- [Project Assumptions](#project-assumptions)
+- [Demo and Visual Materials](#demo-and-visual-materials)
 - [Troubleshooting](#troubleshooting)
-- [Come eseguire il progetto in locale](#come-eseguire-il-progetto-in-locale)
-- [Come fare il deploy da zero](#come-fare-il-deploy-da-zero)
-- [Limiti attuali e sviluppi futuri](#limiti-attuali-e-sviluppi-futuri)
-- [Licenza e crediti](#licenza-e-crediti)
+- [How to Run the Project Locally](#how-to-run-the-project-locally)
+- [How to Deploy from Scratch](#how-to-deploy-from-scratch)
+- [Current Limitations and Future Developments](#current-limitations-and-future-developments)
+- [License and Credits](#license-and-credits)
 
 ## Cloud Job Orchestrator
 
-**Cloud Job Orchestrator** è un sistema **event-driven** per l’orchestrazione di job asincroni, non la classica app “upload + processing” fatta in modo sincrono.
+**Cloud Job Orchestrator** is an **event-driven** system for orchestrating asynchronous jobs — not the classic synchronous "upload + processing" app.
 
-Il progetto affronta un problema preciso: gestire in modo resiliente job asincroni separando nettamente:
+The project addresses a specific problem: resiliently managing asynchronous jobs by clearly separating:
 
-- **intake** (accettazione richiesta, validazione, persistenza stato);
-- **execution** (elaborazione in worker separato);
-- **stato centralizzato** su datastore dedicato;
-- **decoupling via coda** tra API e worker.
+- **intake** (request acceptance, validation, state persistence);
+- **execution** (processing in a separate worker);
+- **centralized state** on a dedicated datastore;
+- **decoupling via queue** between API and worker.
 
-Questo approccio abilita:
+This approach enables:
 
-- invio job **non bloccante** lato client;
-- comportamento **at-least-once** con retry del messaggio;
-- scalabilità orizzontale dei worker;
-- assorbimento dei picchi tramite buffering su coda;
-- tracking stato end-to-end con aggiornamenti realtime e fallback polling.
+- **non-blocking** job submission on the client side;
+- **at-least-once** behavior with message retry;
+- horizontal scaling of workers;
+- peak absorption through queue buffering;
+- end-to-end state tracking with real-time updates and polling fallback.
 
-Il caso d’uso implementato è l’orchestrazione di job immagine asincroni con output persistito su Blob Storage, monitoraggio stato in UI e notifiche realtime per utente/job.
-I due job attuali (**background removal** e **image upscale**) sono esempi concreti di una pipeline più generale: il focus principale del progetto è l’architettura che li supporta, non il singolo algoritmo di elaborazione.
+The implemented use case is the orchestration of asynchronous image jobs with output persisted on Blob Storage, state monitoring in the UI and real-time notifications per user/job.
+The two current jobs (**background removal** and **image upscale**) are concrete examples of a more general pipeline: the main focus of the project is the architecture that supports them, not the individual processing algorithm.
 
-## Architettura ad alto livello
+## High-Level Architecture
 
-Componenti principali presenti nel repository:
+Main components present in the repository:
 
 1. **Frontend Web App (Express)**
-    - Server Node/Express che serve l’interfaccia e la configurazione runtime (`/config.js`).
-    - UI per autenticazione, creazione job, monitoraggio stato e download output.
+    - Node/Express server that serves the interface and runtime configuration (`/config.js`).
+    - UI for authentication, job creation, state monitoring and output download.
 2. **Backend API (Azure Functions HTTP)**
-    - Endpoint di creazione job (`POST /jobs`), stato (`GET /jobs/{id}`), output link (`GET /jobs/{id}/output-link`) e negoziazione realtime (`/realtime/negotiate`).
+    - Job creation endpoint (`POST /jobs`), status (`GET /jobs/{id}`), output link (`GET /jobs/{id}/output-link`) and real-time negotiation (`/realtime/negotiate`).
 3. **Worker (Azure Functions Service Bus trigger)**
-    - Consuma messaggi dalla coda `q-jobs`, esegue elaborazione, aggiorna stato, pubblica eventi realtime.
+    - Consumes messages from the `q-jobs` queue, performs processing, updates state, publishes real-time events.
 4. **Cosmos DB (source of truth)**
-    - Stato job e metadati (status, progress, attempts, input/output reference, error, timestamps).
+    - Job state and metadata (status, progress, attempts, input/output reference, error, timestamps).
 5. **Azure Service Bus**
-    - Coda di disaccoppiamento tra intake e execution, con semantica at-least-once.
+    - Decoupling queue between intake and execution, with at-least-once semantics.
 6. **Blob Storage**
-    - Persistenza dei file input/output e generazione link temporanei di download.
+    - Persistence of input/output files and generation of temporary download links.
 7. **Azure SignalR**
-    - Push realtime eventi di stato/progresso/log verso il client associato all’utente.
+    - Real-time push of state/progress/log events to the client associated with the user.
 8. **Microsoft Entra ID**
-    - Autenticazione e validazione token JWT per accesso alle API.
+    - Authentication and JWT token validation for API access.
 9. **Cleanup timer**
-    - Funzione schedulata ogni 15 minuti per rimuovere job completati oltre soglia temporale e blob associati.
+    - Function scheduled every 15 minutes to remove completed jobs beyond the time threshold and associated blobs.
 10. **Application Insights (observability)**
-    - Raccolta di log, metriche e trace per monitoraggio runtime e debugging.
-    - Utilizzato per analisi errori, performance e comportamento del sistema.
+    - Collection of logs, metrics and traces for runtime monitoring and debugging.
+    - Used for error analysis, performance and system behavior.
 
 ### Cloud Job Orchestrator – High-Level Architecture
 
@@ -102,90 +102,90 @@ Componenti principali presenti nel repository:
   <img src="assets/cjo-architecture-diagram.png" alt="Cloud Job Orchestrator Architecture Diagram" width="900"/>
 </p>
 
-## Workflow end-to-end
+## End-to-End Workflow
 
-1. **Creazione job da UI**
-    - Utente autenticato seleziona tipo job e file immagine.
-2. **Validazione API**
-    - Verifica token, tipo job supportato, presenza file.
-3. **Upload input**
-    - Il file viene caricato nel container Blob input.
-4. **Persistenza stato iniziale**
-    - Viene creato un documento job in Cosmos DB (stato `queued`).
+1. **Job creation from UI**
+    - Authenticated user selects job type and image file.
+2. **API validation**
+    - Token verification, supported job type, file presence.
+3. **Input upload**
+    - The file is uploaded to the Blob input container.
+4. **Initial state persistence**
+    - A job document is created in Cosmos DB (status `queued`).
 5. **Enqueue**
-    - API pubblica su Service Bus un messaggio leggero (claim-check: identificativi, non payload completo).
+    - API publishes a lightweight message to Service Bus (claim-check: identifiers, not full payload).
 6. **Processing worker**
-    - Worker legge messaggio, carica input da Blob, applica trasformazione, carica output su Blob.
-7. **Aggiornamento stato**
-    - Cosmos viene aggiornato progressivamente (`processing` → `done` o `failed`, con progress/attempts/error).
-8. **Notifiche realtime**
-    - Eventi SignalR inviati al client utente (`status`, `progress`, `log`, `completed`).
-9. **Fallback polling**
-    - Se realtime non disponibile, frontend continua monitoraggio via polling API.
-10. **Download finale**
-    - UI richiede `output-link`; backend genera URL SAS temporaneo per scaricare l’output.
+    - Worker reads the message, loads input from Blob, applies transformation, uploads output to Blob.
+7. **State update**
+    - Cosmos is progressively updated (`processing` → `done` or `failed`, with progress/attempts/error).
+8. **Real-time notifications**
+    - SignalR events sent to the user client (`status`, `progress`, `log`, `completed`).
+9. **Polling fallback**
+    - If real-time is not available, the frontend continues monitoring via API polling.
+10. **Final download**
+    - UI requests `output-link`; backend generates a temporary SAS URL to download the output.
 
-## Funzionalità principali
+## Main Features
 
-Capacità effettivamente implementate:
+Actually implemented capabilities:
 
-- autenticazione utente tramite Entra ID;
-- creazione job asincroni via API;
-- monitoraggio stato job (queued/processing/done/failed);
-- gestione output con link di download temporaneo;
-- supporto a più `job type`;
-- retry/at-least-once behavior del processing basato su coda;
-- progress updates durante l’esecuzione;
-- cleanup periodico dei job completati;
-- fallback automatico realtime → polling lato frontend.
+- user authentication via Entra ID;
+- creation of asynchronous jobs via API;
+- job state monitoring (queued/processing/done/failed);
+- output management with temporary download link;
+- support for multiple `job type`;
+- retry/at-least-once processing behavior based on queue;
+- progress updates during execution;
+- periodic cleanup of completed jobs;
+- automatic real-time → polling fallback on the frontend side.
 
-### Job disponibili
+### Available Jobs
 
 1. **background_removal**
-    - Usa `rembg` con sessione riutilizzabile lato worker.
-    - L’immagine viene convertita e salvata in **PNG** (`image/png`).
+    - Uses `rembg` with a reusable session on the worker side.
+    - The image is converted and saved in **PNG** (`image/png`).
 
 2. **image_upscale**
-    - Usa Pillow con resize LANCZOS (attualmente fattore 2x).
-    - Tenta di preservare il formato originale quando disponibile.
+    - Uses Pillow with LANCZOS resize (currently 2x factor).
+    - Attempts to preserve the original format when available.
 
-## Servizi Azure usati e perché
+## Azure Services Used and Why
 
 - **Azure Functions**
-  - Ruolo: API HTTP, worker queue-trigger, timer di cleanup.
-  - Perché: modello serverless, separazione naturale dei trigger e scaling gestito.
+  - Role: HTTP API, queue-trigger worker, cleanup timer.
+  - Why: serverless model, natural separation of triggers and managed scaling.
 - **Azure Service Bus**
-  - Ruolo: coda job `q-jobs`.
-  - Perché: disaccoppia intake da execution, bufferizza picchi, abilita retry at-least-once.
+  - Role: `q-jobs` job queue.
+  - Why: decouples intake from execution, buffers peaks, enables at-least-once retry.
 - **Azure Cosmos DB**
-  - Ruolo: stato e metadati job.
-  - Perché: datastore operativo a bassa latenza, usato come **source of truth**.
+  - Role: job state and metadata.
+  - Why: low-latency operational datastore, used as **source of truth**.
 - **Azure Blob Storage**
-  - Ruolo: persistenza input/output e download via SAS temporaneo.
-  - Perché: storage adatto a payload binari, separato dai metadati.
+  - Role: input/output persistence and download via temporary SAS.
+  - Why: storage suitable for binary payloads, separate from metadata.
 - **Azure App Service / Web App**
-  - Ruolo: hosting frontend Express.
-  - Perché: delivery semplice della UI con configurazione via app settings.
+  - Role: Express frontend hosting.
+  - Why: simple UI delivery with configuration via app settings.
 - **Azure SignalR Service**
-  - Ruolo: push realtime eventi job a utenti specifici.
-  - Perché: aggiornamenti near-real-time senza polling continuo, con fallback quando necessario.
+  - Role: real-time push of job events to specific users.
+  - Why: near-real-time updates without continuous polling, with fallback when needed.
 - **Microsoft Entra ID**
-  - Ruolo: identity provider per login e protezione API via bearer token.
-  - Perché: gestione centralizzata identità/claims in contesto Azure.
+  - Role: identity provider for login and API protection via bearer token.
+  - Why: centralized identity/claims management in an Azure context.
 - **Application Insights**
-  - Ruolo: telemetria e osservabilità runtime.
-  - Perché: supporta tuning operativo (es. concorrenza worker, analisi failure/performance).
+  - Role: telemetry and runtime observability.
+  - Why: supports operational tuning (e.g. worker concurrency, failure/performance analysis).
 
-Best practice applicate nel disegno:
+Best practices applied in the design:
 
-- claim-check pattern nei messaggi;
-- decoupling tramite message queue;
-- at-least-once processing + idempotenza consumer;
-- separazione trigger serverless per responsabilità;
-- stato persistito come source of truth;
-- realtime push con fallback polling.
+- claim-check pattern in messages;
+- decoupling via message queue;
+- at-least-once processing + consumer idempotency;
+- separation of serverless triggers by responsibility;
+- state persisted as source of truth;
+- real-time push with polling fallback.
 
-Esempio sintetico di documento job in Cosmos DB:
+Synthetic example of a job document in Cosmos DB:
 
 ```json
 {
@@ -205,82 +205,82 @@ Esempio sintetico di documento job in Cosmos DB:
 }
 ```
 
-## Dettagli di implementazione
+## Implementation Details
 
-Il progetto è strutturato in moduli e servizi separati, non come demo monolitica:
+The project is structured in separate modules and services, not as a monolithic demo:
 
-- backend organizzato in `src/shared/` (utility cross-cutting) e `src/services/` (logica applicativa);
-- separazione netta tra API (`create/get status/output-link`) e worker (`process_job_message`);
-- claim-check pattern: nel messaggio Service Bus passano solo riferimenti (`jobId`, `pk`, `type`, `correlationId`);
-- idempotenza operativa worker: se trova stato terminale (`done`/`canceled`) salta la riesecuzione;
-- gestione errori con persistenza stato `failed` e payload errore (`code`, `message`, `stage`);
-- progress tracking intermedio (`0.1`, `0.4`, `0.7`, `0.9`, `1.0`) con eventi realtime;
-- cleanup automatico dei job `done` più vecchi di 1 ora, con eliminazione blob input/output;
-- heartbeat realtime durante operazioni lunghe per evitare “silenzio” lato client.
+- backend organized into `src/shared/` (cross-cutting utilities) and `src/services/` (application logic);
+- clear separation between API (`create/get status/output-link`) and worker (`process_job_message`);
+- claim-check pattern: only references are passed in the Service Bus message (`jobId`, `pk`, `type`, `correlationId`);
+- worker operational idempotency: if it finds a terminal state (`done`/`canceled`) it skips re-execution;
+- error handling with `failed` state persistence and error payload (`code`, `message`, `stage`);
+- intermediate progress tracking (`0.1`, `0.4`, `0.7`, `0.9`, `1.0`) with real-time events;
+- automatic cleanup of `done` jobs older than 1 hour, with deletion of input/output blobs;
+- real-time heartbeat during long operations to avoid "silence" on the client side.
 
-Scelta operativa rilevante: in `backend/host.json` il trigger Service Bus usa **`maxConcurrentCalls: 2`** per istanza. Questa configurazione è stata mantenuta dopo test/osservazioni su Application Insights per ridurre saturazione risorse e prevenire instabilità/crash delle singole istanze quando i job sono pesanti (es. elaborazioni immagine con librerie native).
+Relevant operational choice: in `backend/host.json` the Service Bus trigger uses **`maxConcurrentCalls: 2`** per instance. This configuration was maintained after tests/observations on Application Insights to reduce resource saturation and prevent instability/crashes of individual instances when jobs are heavy (e.g. image processing with native libraries).
 
-## Perché questa architettura
+## Why This Architecture
 
-Trade-off principale: preferire disaccoppiamento e robustezza operativa rispetto a una pipeline sincrona semplice.
+Main trade-off: preferring decoupling and operational robustness over a simple synchronous pipeline.
 
-Benefici pratici:
+Practical benefits:
 
-- **disaccoppiamento** UI/API da processing;
-- **resilienza** a errori temporanei con retry del messaggio;
-- **scalabilità** dei worker in base al carico;
-- **isolamento** dei job e del runtime di elaborazione;
-- **gestione picchi** tramite coda;
-- **riduzione del coupling** tra esperienza utente e tempi reali di processing.
+- **decoupling** of UI/API from processing;
+- **resilience** to temporary errors with message retry;
+- **scalability** of workers based on load;
+- **isolation** of jobs and the processing runtime;
+- **peak management** via queue;
+- **reduction of coupling** between user experience and actual processing times.
 
-## Assunzioni di progetto
+## Project Assumptions
 
-- La UI è progettata per job relativamente veloci e per il monitoraggio operativo in tempo reale.
-- Il sistema è orientato a un utilizzo one-shot: creazione del job, attesa del risultato e download, senza necessità di consultazione successiva.
-- Non è previsto uno storico persistente dei job lato frontend dopo refresh completo.
-- Il focus è sull’orchestrazione resiliente dei job asincroni, non sull’archiviazione o gestione storica dei risultati.
-- La persistenza lato backend (Cosmos DB, Blob Storage) è utilizzata per orchestrazione e tracciamento durante l’esecuzione, non come storage permanente per consultazione utente nel lungo periodo.
+- The UI is designed for relatively fast jobs and for real-time operational monitoring.
+- The system is oriented towards one-shot usage: job creation, waiting for the result and download, without the need for subsequent consultation.
+- No persistent job history is expected on the frontend side after a full refresh.
+- The focus is on resilient orchestration of asynchronous jobs, not on archiving or historical management of results.
+- Backend persistence (Cosmos DB, Blob Storage) is used for orchestration and tracking during execution, not as permanent storage for long-term user consultation.
 
 
-## Demo e materiali visivi
+## Demo and Visual Materials
 
-### Video demo
+### Video Demo
 
-**Autenticazione e accesso**  
+**Authentication and access**  
 
-[![Autenticazione e accesso](assets/preview-auth.gif)](assets/video-autenticazione-entra-id.mp4)
+[![Authentication and access](assets/preview-auth.gif)](assets/video-autenticazione-entra-id.mp4)
 
-**Creazione di un Job (background removal)**  
+**Creating a Job (background removal)**  
 
-[![Rimozione background](assets/preview-bg-remove.gif)](assets/video-background-remove.mp4)
+[![Background removal](assets/preview-bg-remove.gif)](assets/video-background-remove.mp4)
 
 
 ## Troubleshooting
 
-- **Primo avvio frontend più lento**
-  - Il server Express può richiedere tempo iniziale di warm-up.
-- **Primo avvio Functions più lento**
-  - Cold start + caricamento runtime/librerie (in particolare `rembg`) può aumentare latenza iniziale.
-- **Latenza demo intenzionale**
-  - Il worker può introdurre ritardo configurabile (`WORKER_DELAY_SECONDS`) per visualizzare meglio le transizioni in demo.
+- **First frontend startup is slower**
+  - The Express server may require initial warm-up time.
+- **First Functions startup is slower**
+  - Cold start + runtime/library loading (in particular `rembg`) may increase initial latency.
+- **Intentional demo latency**
+  - The worker can introduce a configurable delay (`WORKER_DELAY_SECONDS`) to better visualize transitions in demo.
 - **Login/token issues**
-  - Verificare coerenza configurazioni Entra ID: tenant, client ID, audience, scope e app registration.
+  - Verify consistency of Entra ID configurations: tenant, client ID, audience, scope and app registration.
 - **Deploy/config issues**
-  - Usare `infra/README.md` e script `infra/` per diagnosi (parametri, app settings, prerequisiti).
-- **Concorrenza worker e stabilità**
-  - In caso di saturazione o errori runtime sotto carico, verificare impostazione `maxConcurrentCalls: 2` in `backend/host.json` scelta introdotta dopo osservazioni su Application Insights (con valori più alti ho visto instabilità su job pesanti).
+  - Use `infra/README.md` and `infra/` scripts for diagnosis (parameters, app settings, prerequisites).
+- **Worker concurrency and stability**
+  - In case of saturation or runtime errors under load, verify the `maxConcurrentCalls: 2` setting in `backend/host.json` — a choice introduced after observations on Application Insights (with higher values I observed instability on heavy jobs).
 
-## Come eseguire il progetto in locale
+## How to Run the Project Locally
 
-### 1) Prerequisiti
+### 1) Prerequisites
 
 - Azure Functions Core Tools
 - Python 3 + pip
 - Node.js + npm
 - Azure CLI (`az`)
-- Per eseguire il flusso completo con infrastruttura Azure: seguire le istruzioni in [infra/README.md](infra/README.md)
+- To run the complete flow with Azure infrastructure: follow the instructions in [infra/README.md](infra/README.md)
 
-### 2) Configurazione variabili
+### 2) Variable Configuration
 
 1. Backend:
    ```bash
@@ -290,13 +290,13 @@ Benefici pratici:
    ```bash
    cp .env.example .env
    ```
-3. Popolare valori reali (API base URL, Entra ID, connessioni backend).
+3. Populate real values (API base URL, Entra ID, backend connections).
 
-Suggerimento pratico: dopo deploy infrastruttura usare `infra/setup-env.sh` per estrarre valori da App Settings.
+Practical tip: after infrastructure deployment use `infra/setup-env.sh` to extract values from App Settings.
 
-### 3) Avvio backend
+### 3) Backend startup
 
-Da `backend/`:
+From `backend/`:
 
 ```bash
 python -m venv .venv
@@ -305,50 +305,50 @@ pip install -r requirements.txt
 func start
 ```
 
-### 4) Avvio frontend
+### 4) Frontend startup
 
-Da `frontend/`:
+From `frontend/`:
 
 ```bash
 npm install
 npm start
 ```
 
-Il frontend Express espone la UI (porta locale da `PORT`, default `3000`).
+The Express frontend exposes the UI (local port from `PORT`, default `3000`).
 
-### 5) Test rapido demo
+### 5) Quick demo test
 
-1. Login Microsoft dalla UI.
-2. Seleziona `background_removal` o `image_upscale`.
-3. Carica immagine e crea job.
-4. Verifica transizioni stato/progresso (realtime o polling fallback).
-5. Scarica output con pulsante dedicato quando lo stato è `done`.
+1. Microsoft login from the UI.
+2. Select `background_removal` or `image_upscale`.
+3. Upload image and create job.
+4. Verify state/progress transitions (real-time or polling fallback).
+5. Download output with the dedicated button when the state is `done`.
 
-## Come fare il deploy da zero
+## How to Deploy from Scratch
 
-Il flusso ufficiale di provisioning e deploy è nella cartella [infra/](infra/)
+The official provisioning and deployment flow is in the [infra/](infra/) folder
 
-- Provisioning risorse: `infra/deploy.sh` + `infra/bicep/main.bicep`
-- Parametri ambiente: `infra/bicep/parameters*.json`
-- Estrazione variabili runtime: `infra/setup-env.sh`
-- Istruzioni operative complete: **`infra/README.md`**
+- Resource provisioning: `infra/deploy.sh` + `infra/bicep/main.bicep`
+- Environment parameters: `infra/bicep/parameters*.json`
+- Runtime variable extraction: `infra/setup-env.sh`
+- Complete operational instructions: **`infra/README.md`**
 
-Questo README non duplica la guida infrastrutturale: per deploy da zero seguire direttamente [infra/README.md](infra/README.md).
+This README does not duplicate the infrastructure guide: for deployment from scratch follow [infra/README.md](infra/README.md) directly.
 
-## Limiti attuali e sviluppi futuri
+## Current Limitations and Future Developments
 
-Evoluzioni naturali del progetto:
+Natural evolutions of the project:
 
-- supporto a più tipi di input e validazioni avanzate;
-- pipeline di elaborazione più realistica (multi-step, chaining, policy);
-- multi-tenant completo con isolamento/logica quota;
-- osservabilità avanzata (metriche business + tracing distribuito approfondito);
-- persistenza storica job lato frontend o datastore dedicato per consultazione lunga;
-- evoluzione da flusso orientato a job veloci verso piattaforma operativa più completa.
+- support for more input types and advanced validations;
+- more realistic processing pipeline (multi-step, chaining, policy);
+- full multi-tenant with isolation/quota logic;
+- advanced observability (business metrics + in-depth distributed tracing);
+- historical job persistence on the frontend or dedicated datastore for long-term consultation;
+- evolution from a flow oriented towards fast jobs towards a more complete operational platform.
 
-## Licenza e crediti
+## License and Credits
 
-- **Licenza**: Questo progetto è rilasciato sotto Unlicense. Per i dettagli completi, consultare il file `LICENSE`.
-- **Crediti tecnici**:
+- **License**: This project is released under the Unlicense. For full details, refer to the `LICENSE` file.
+- **Technical credits**:
   - Azure Functions, Service Bus, Cosmos DB, Blob Storage, SignalR, App Service;
-  - librerie Python usate nel processing: `rembg`, `Pillow`.
+  - Python libraries used in processing: `rembg`, `Pillow`.
